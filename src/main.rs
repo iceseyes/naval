@@ -1,7 +1,10 @@
+use crate::battlefield::Battlefield;
+
 mod battlefield;
 mod cell;
 mod ship;
 
 fn main() {
-    println!("Hello, world!");
+    let battlefield = Battlefield::random();
+    dbg!(battlefield);
 }

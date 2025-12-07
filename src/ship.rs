@@ -1,6 +1,6 @@
 use crate::cell::Cell;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub enum ShipDirection {
     Horizontal,
     Vertical,
@@ -15,6 +15,7 @@ impl ShipDirection {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Ship {
     first_cell: Cell,
     ship_size: u8,
@@ -29,17 +30,17 @@ impl Ship {
     const SUBMARINE_SIZE: u8 = 3;
     const DESTROYER_SIZE: u8 = 2;
 
-    pub fn new(ship_size: u8, first_cell: Cell, direction: &ShipDirection) -> Option<Self> {
+    pub fn new(ship_size: u8, first_cell: Cell, direction: ShipDirection) -> Option<Self> {
         let (long, short) = match direction {
             ShipDirection::Horizontal => (first_cell.x, first_cell.y),
             ShipDirection::Vertical => (first_cell.y, first_cell.x),
         };
 
-        if long + ship_size - 1 <= 9 && short <= 9 {
+        if long <= 9 && long + ship_size - 1 <= 9 && short <= 9 {
             Some(Ship {
                 first_cell,
                 ship_size,
-                direction: direction.clone(),
+                direction,
                 state: get_ship_state(ship_size),
             })
         } else {
@@ -47,24 +48,51 @@ impl Ship {
         }
     }
 
-    pub fn aircraft_carrier(first_cell: Cell, direction: &ShipDirection) -> Option<Self> {
+    pub fn cell(&self) -> Cell {
+        self.first_cell
+    }
+
+    pub fn direction(&self) -> ShipDirection {
+        self.direction
+    }
+
+    pub fn aircraft_carrier(first_cell: Cell, direction: ShipDirection) -> Option<Self> {
         Ship::new(Self::AIRCRAFT_CARRIER_SIZE, first_cell, direction)
     }
 
-    pub fn battleship(first_cell: Cell, direction: &ShipDirection) -> Option<Self> {
+    pub fn battleship(first_cell: Cell, direction: ShipDirection) -> Option<Self> {
         Ship::new(Self::BATTLESHIP_SIZE, first_cell, direction)
     }
 
-    pub fn cruiser(first_cell: Cell, direction: &ShipDirection) -> Option<Self> {
+    pub fn cruiser(first_cell: Cell, direction: ShipDirection) -> Option<Self> {
         Ship::new(Self::CRUISER_SIZE, first_cell, direction)
     }
 
-    pub fn submarine(first_cell: Cell, direction: &ShipDirection) -> Option<Self> {
+    pub fn submarine(first_cell: Cell, direction: ShipDirection) -> Option<Self> {
         Ship::new(Self::SUBMARINE_SIZE, first_cell, direction)
     }
 
-    pub fn destroyer(first_cell: Cell, direction: &ShipDirection) -> Option<Self> {
+    pub fn destroyer(first_cell: Cell, direction: ShipDirection) -> Option<Self> {
         Ship::new(Self::DESTROYER_SIZE, first_cell, direction)
+    }
+
+    /// Returns all board cells occupied by this ship based on its
+    /// origin cell, size and direction.
+    pub fn occupied_cells(&self) -> Vec<Cell> {
+        let mut cells = Vec::with_capacity(self.ship_size as usize);
+        match self.direction {
+            ShipDirection::Horizontal => {
+                for dx in 0..self.ship_size {
+                    cells.push(Cell::new(self.first_cell.x + dx, self.first_cell.y));
+                }
+            }
+            ShipDirection::Vertical => {
+                for dy in 0..self.ship_size {
+                    cells.push(Cell::new(self.first_cell.x, self.first_cell.y + dy));
+                }
+            }
+        }
+        cells
     }
 
     pub fn is_sunk(&self) -> bool {
@@ -99,8 +127,8 @@ impl Ship {
             }
         };
 
-        for x in x_start..x_end {
-            for y in y_start..y_end {
+        for x in x_start..=x_end {
+            for y in y_start..=y_end {
                 if other.is_hit(&Cell::new(x, y)).is_some() {
                     return true;
                 }
@@ -177,7 +205,7 @@ mod tests {
         #[case] direction: ShipDirection,
         #[case] expected: bool,
     ) {
-        let ship = Ship::aircraft_carrier(Cell::new(x, y), &direction);
+        let ship = Ship::aircraft_carrier(Cell::new(x, y), direction.clone());
         if expected {
             assert!(ship.is_some());
 
@@ -193,28 +221,28 @@ mod tests {
 
     #[test]
     fn test_build_battleship() {
-        let ship = Ship::battleship(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let ship = Ship::battleship(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         assert_eq!(ship.ship_size, 4);
         assert_eq!(ship.state, 0x0f);
     }
 
     #[test]
     fn test_build_cruiser() {
-        let ship = Ship::cruiser(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let ship = Ship::cruiser(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         assert_eq!(ship.ship_size, 3);
         assert_eq!(ship.state, 0x07);
     }
 
     #[test]
     fn test_build_submarine() {
-        let ship = Ship::submarine(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let ship = Ship::submarine(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         assert_eq!(ship.ship_size, 3);
         assert_eq!(ship.state, 0x07);
     }
 
     #[test]
     fn test_build_destroyer() {
-        let ship = Ship::destroyer(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let ship = Ship::destroyer(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         assert_eq!(ship.ship_size, 2);
         assert_eq!(ship.state, 0x03);
     }
@@ -229,7 +257,7 @@ mod tests {
     #[case(4, 1, false)]
     #[case(0, 9, false)]
     fn test_check_hit_horizonal_origin(#[case] x: u8, #[case] y: u8, #[case] expected: bool) {
-        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         assert_eq!(ship.check_hit(&Cell::new(x, y)), expected);
     }
 
@@ -251,7 +279,7 @@ mod tests {
     #[case(4, 1, false)]
     #[case(0, 9, false)]
     fn test_check_hit_horizonal_middle(#[case] x: u8, #[case] y: u8, #[case] expected: bool) {
-        let mut ship = Ship::aircraft_carrier(Cell::new(5, 5), &ShipDirection::Horizontal).unwrap();
+        let mut ship = Ship::aircraft_carrier(Cell::new(5, 5), ShipDirection::Horizontal).unwrap();
         assert_eq!(ship.check_hit(&Cell::new(x, y)), expected);
     }
 
@@ -265,7 +293,7 @@ mod tests {
     #[case(1, 4, false)]
     #[case(9, 0, false)]
     fn test_check_hit_vertical_origin(#[case] x: u8, #[case] y: u8, #[case] expected: bool) {
-        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), &ShipDirection::Vertical).unwrap();
+        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), ShipDirection::Vertical).unwrap();
         assert_eq!(ship.check_hit(&Cell::new(x, y)), expected);
     }
 
@@ -287,13 +315,13 @@ mod tests {
     #[case(1, 4, false)]
     #[case(9, 0, false)]
     fn test_check_hit_vertical_middle(#[case] x: u8, #[case] y: u8, #[case] expected: bool) {
-        let mut ship = Ship::aircraft_carrier(Cell::new(5, 5), &ShipDirection::Vertical).unwrap();
+        let mut ship = Ship::aircraft_carrier(Cell::new(5, 5), ShipDirection::Vertical).unwrap();
         assert_eq!(ship.check_hit(&Cell::new(x, y)), expected);
     }
 
     #[test]
     fn test_check_hit_change_state() {
-        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         ship.check_hit(&Cell::new(0, 0));
         assert_eq!(ship.state, 0x1e);
         ship.check_hit(&Cell::new(5, 0));
@@ -304,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_is_sunk() {
-        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), &ShipDirection::Horizontal).unwrap();
+        let mut ship = Ship::aircraft_carrier(Cell::new(0, 0), ShipDirection::Horizontal).unwrap();
         assert!(!ship.is_sunk());
         ship.check_hit(&Cell::new(0, 0));
         assert!(!ship.is_sunk());
@@ -320,8 +348,20 @@ mod tests {
 
     #[rstest]
     #[case(
-        Ship::aircraft_carrier(Cell::new(3, 3), &ShipDirection::Horizontal).unwrap(),
-        Ship::aircraft_carrier(Cell::new(4, 4), &ShipDirection::Horizontal).unwrap())]
+        Ship::aircraft_carrier(Cell::new(3, 3), ShipDirection::Horizontal).unwrap(),
+        Ship::aircraft_carrier(Cell::new(4, 4), ShipDirection::Horizontal).unwrap())]
+    #[case(
+        Ship::aircraft_carrier(Cell::new(4, 4), ShipDirection::Horizontal).unwrap(),
+        Ship::aircraft_carrier(Cell::new(3, 3), ShipDirection::Horizontal).unwrap())]
+    #[case(
+        Ship::aircraft_carrier(Cell::new(3, 3), ShipDirection::Horizontal).unwrap(),
+        Ship::aircraft_carrier(Cell::new(4, 4), ShipDirection::Vertical).unwrap())]
+    #[case(
+        Ship::aircraft_carrier(Cell::new(3, 3), ShipDirection::Horizontal).unwrap(),
+        Ship::aircraft_carrier(Cell::new(4, 0), ShipDirection::Vertical).unwrap())]
+    #[case(
+        Ship::aircraft_carrier(Cell::new(3, 3), ShipDirection::Vertical).unwrap(),
+        Ship::submarine(Cell::new(0, 4), ShipDirection::Horizontal).unwrap())]
     fn test_is_overlapping(#[case] ship1: Ship, #[case] ship2: Ship) {
         assert!(ship1.is_overlapping(&ship2));
     }

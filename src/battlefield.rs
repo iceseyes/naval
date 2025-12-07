@@ -1,5 +1,6 @@
 use crate::cell::Cell;
 use crate::ship::{Ship, ShipDirection};
+use std::fmt;
 
 macro_rules! random_ship_placement {
     ($ship: ident) => {
@@ -10,7 +11,7 @@ macro_rules! random_ship_placement {
             );
 
             if let Some(ship) = ship {
-                break ship;
+                break BattlefieldCell::new(ship.cell(), ship.direction()).unwrap();
             }
         }
     };
@@ -27,11 +28,11 @@ pub enum ShootState {
 pub struct BattlefieldCell(Cell, ShipDirection);
 
 impl BattlefieldCell {
-    pub fn new(x: u8, y: u8, direction: ShipDirection) -> Option<Self> {
-        if x > 9 || y > 9 {
+    pub fn new(cell: Cell, direction: ShipDirection) -> Option<Self> {
+        if cell.x > 9 || cell.y > 9 {
             None
         } else {
-            Some(Self(Cell::new(x, y), direction))
+            Some(Self(cell, direction))
         }
     }
 }
@@ -49,16 +50,40 @@ impl Battlefield {
         cruiser: BattlefieldCell,
         destroyer: BattlefieldCell,
     ) -> Result<Self, String> {
-        let aircraft_carrier = Ship::aircraft_carrier(aircraft_carrier.0, &aircraft_carrier.1)
+        let aircraft_carrier = Ship::aircraft_carrier(aircraft_carrier.0, aircraft_carrier.1)
             .ok_or_else(|| "Aircraft carrier not placed".to_string())?;
-        let battleship = Ship::battleship(battleship.0, &battleship.1)
+        let battleship = Ship::battleship(battleship.0, battleship.1)
             .ok_or_else(|| "Battleship not placed".to_string())?;
-        let submarine = Ship::submarine(submarine.0, &submarine.1)
+        let submarine = Ship::submarine(submarine.0, submarine.1)
             .ok_or_else(|| "Submarine not placed".to_string())?;
         let cruiser =
-            Ship::cruiser(cruiser.0, &cruiser.1).ok_or_else(|| "Cruiser not placed".to_string())?;
-        let destroyer = Ship::destroyer(destroyer.0, &destroyer.1)
+            Ship::cruiser(cruiser.0, cruiser.1).ok_or_else(|| "Cruiser not placed".to_string())?;
+        let destroyer = Ship::destroyer(destroyer.0, destroyer.1)
             .ok_or_else(|| "Destroyer not placed".to_string())?;
+
+        for &ship in [
+            &aircraft_carrier,
+            &battleship,
+            &submarine,
+            &cruiser,
+            &destroyer,
+        ]
+        .iter()
+        {
+            for &ship2 in [
+                &aircraft_carrier,
+                &battleship,
+                &submarine,
+                &cruiser,
+                &destroyer,
+            ]
+            .iter()
+            {
+                if ship != ship2 && ship.is_overlapping(ship2) {
+                    return Err("Ships overlap".to_string());
+                }
+            }
+        }
 
         Ok(Battlefield {
             ships: [aircraft_carrier, battleship, submarine, cruiser, destroyer],
@@ -67,6 +92,39 @@ impl Battlefield {
     }
 
     pub fn random() -> Self {
-        unimplemented!()
+        loop {
+            if let Ok(bf) = Self::new(
+                random_ship_placement!(aircraft_carrier),
+                random_ship_placement!(battleship),
+                random_ship_placement!(submarine),
+                random_ship_placement!(cruiser),
+                random_ship_placement!(destroyer),
+            ) {
+                break bf;
+            }
+        }
+    }
+}
+
+impl fmt::Debug for Battlefield {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut grid = [['.'; 10]; 10];
+        let labels = ['A', 'B', 'S', 'C', 'D'];
+
+        for (idx, ship) in self.ships.iter().enumerate() {
+            for cell in ship.occupied_cells() {
+                let x = cell.x as usize;
+                let y = cell.y as usize;
+                grid[y][x] = labels[idx];
+            }
+        }
+
+        writeln!(f, "Battlefield:")?;
+        for y in 0..10 {
+            let row: String = grid[y].iter().collect();
+            writeln!(f, "{}", row)?;
+        }
+
+        Ok(())
     }
 }
