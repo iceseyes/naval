@@ -6,5 +6,5 @@ mod ship;
 
 fn main() {
     let battlefield = Battlefield::random();
-    dbg!(battlefield);
+    println!("{battlefield}")
 }

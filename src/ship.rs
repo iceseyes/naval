@@ -170,10 +170,51 @@ fn get_ship_state(size: u8) -> u8 {
     state
 }
 
+pub fn validate_ships(ships: &[Ship]) -> Result<(), &'static str> {
+    for (index, ship) in ships.iter().enumerate() {
+        for other_ship in ships.iter().skip(index + 1) {
+            if ship.is_overlapping(other_ship) {
+                return Err("Ships overlap");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn as_grid(ships: &[Ship]) -> [[bool; 10]; 10] {
+    let mut grid = [[false; 10]; 10];
+
+    for ship in ships.iter() {
+        for cell in ship.occupied_cells() {
+            let x = cell.x as usize;
+            let y = cell.y as usize;
+            grid[y][x] = true;
+        }
+    }
+
+    grid
+}
+
+pub fn display_ships(ships: &[Ship]) -> String {
+    let mut grid = as_grid(ships);
+
+    let mut out = "  A B C D E F G H I L \n".to_string();
+    for (index, y) in grid.iter().enumerate() {
+        let row: String = y
+            .iter()
+            .map(|o| format!("{} ", if *o { 'X' } else { ' ' }))
+            .collect();
+        out = format!("{}{index} {}\n", out.as_str(), row.as_str())
+    }
+
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use crate::cell::Cell;
-    use crate::ship::{Ship, ShipDirection};
+    use crate::ship::{display_ships, Ship, ShipDirection};
     use rstest::rstest;
 
     #[rstest]
@@ -364,5 +405,56 @@ mod tests {
         Ship::submarine(Cell::new(0, 4), ShipDirection::Horizontal).unwrap())]
     fn test_is_overlapping(#[case] ship1: Ship, #[case] ship2: Ship) {
         assert!(ship1.is_overlapping(&ship2));
+    }
+
+    #[rstest]
+    fn test_display_ships() {
+        let ships = [];
+        display_ships(&ships);
+
+        #[rustfmt::skip]
+        assert_eq!(
+            display_ships(&ships),
+                  "  A B C D E F G H I L \n".to_owned()
+                + "0                     \n"
+                + "1                     \n"
+                + "2                     \n"
+                + "3                     \n"
+                + "4                     \n"
+                + "5                     \n"
+                + "6                     \n"
+                + "7                     \n"
+                + "8                     \n"
+                + "9                     \n"
+        );
+
+        let ships = vec![
+            // A: Aircraft carrier, horizontal on row 0
+            Ship::aircraft_carrier(Cell::new(0, 0), ShipDirection::Horizontal).unwrap(),
+            // B: Battleship, vertical starting at (0, 2)
+            Ship::battleship(Cell::new(0, 2), ShipDirection::Vertical).unwrap(),
+            // S: Submarine, horizontal at (5, 5)
+            Ship::submarine(Cell::new(5, 5), ShipDirection::Horizontal).unwrap(),
+            // C: Cruiser, vertical at (9, 0)
+            Ship::cruiser(Cell::new(9, 0), ShipDirection::Vertical).unwrap(),
+            // D: Destroyer, horizontal at (7, 9)
+            Ship::destroyer(Cell::new(7, 9), ShipDirection::Horizontal).unwrap(),
+        ];
+
+        #[rustfmt::skip]
+        assert_eq!(
+            display_ships(&ships),
+                  "  A B C D E F G H I L \n".to_owned()
+                + "0 X X X X X         X \n"
+                + "1                   X \n"
+                + "2 X                 X \n"
+                + "3 X                   \n"
+                + "4 X                   \n"
+                + "5 X         X X X     \n"
+                + "6                     \n"
+                + "7                     \n"
+                + "8                     \n"
+                + "9               X X   \n"
+        );
     }
 }

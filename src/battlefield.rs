@@ -1,6 +1,7 @@
 use crate::cell::Cell;
-use crate::ship::{Ship, ShipDirection};
+use crate::ship::{display_ships, validate_ships, Ship, ShipDirection};
 use std::fmt;
+use std::fmt::{Display, Formatter};
 
 macro_rules! random_ship_placement {
     ($ship: ident) => {
@@ -50,43 +51,23 @@ impl Battlefield {
         cruiser: BattlefieldCell,
         destroyer: BattlefieldCell,
     ) -> Result<Self, String> {
-        let aircraft_carrier = Ship::aircraft_carrier(aircraft_carrier.0, aircraft_carrier.1)
-            .ok_or_else(|| "Aircraft carrier not placed".to_string())?;
-        let battleship = Ship::battleship(battleship.0, battleship.1)
-            .ok_or_else(|| "Battleship not placed".to_string())?;
-        let submarine = Ship::submarine(submarine.0, submarine.1)
-            .ok_or_else(|| "Submarine not placed".to_string())?;
-        let cruiser =
-            Ship::cruiser(cruiser.0, cruiser.1).ok_or_else(|| "Cruiser not placed".to_string())?;
-        let destroyer = Ship::destroyer(destroyer.0, destroyer.1)
-            .ok_or_else(|| "Destroyer not placed".to_string())?;
+        let ships = [
+            Ship::aircraft_carrier(aircraft_carrier.0, aircraft_carrier.1)
+                .ok_or_else(|| "Aircraft carrier not placed".to_string())?,
+            Ship::battleship(battleship.0, battleship.1)
+                .ok_or_else(|| "Battleship not placed".to_string())?,
+            Ship::submarine(submarine.0, submarine.1)
+                .ok_or_else(|| "Submarine not placed".to_string())?,
+            Ship::cruiser(cruiser.0, cruiser.1).ok_or_else(|| "Cruiser not placed".to_string())?,
+            Ship::destroyer(destroyer.0, destroyer.1)
+                .ok_or_else(|| "Destroyer not placed".to_string())?,
+        ];
 
-        for &ship in [
-            &aircraft_carrier,
-            &battleship,
-            &submarine,
-            &cruiser,
-            &destroyer,
-        ]
-        .iter()
-        {
-            for &ship2 in [
-                &aircraft_carrier,
-                &battleship,
-                &submarine,
-                &cruiser,
-                &destroyer,
-            ]
-            .iter()
-            {
-                if ship != ship2 && ship.is_overlapping(ship2) {
-                    return Err("Ships overlap".to_string());
-                }
-            }
-        }
+        // Check for overlapping ships
+        validate_ships(&ships[..])?;
 
         Ok(Battlefield {
-            ships: [aircraft_carrier, battleship, submarine, cruiser, destroyer],
+            ships,
             battle_shoots: [[ShootState::None; 10]; 10],
         })
     }
@@ -120,11 +101,17 @@ impl fmt::Debug for Battlefield {
         }
 
         writeln!(f, "Battlefield:")?;
-        for y in 0..10 {
-            let row: String = grid[y].iter().collect();
+        for y in grid {
+            let row: String = y.iter().collect();
             writeln!(f, "{}", row)?;
         }
 
         Ok(())
+    }
+}
+
+impl Display for Battlefield {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", display_ships(&self.ships[..]))
     }
 }
