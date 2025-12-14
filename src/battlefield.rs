@@ -1,18 +1,19 @@
 use crate::cell::Cell;
-use crate::ship::{display_ships, validate_ships, Ship, ShipDirection};
+use crate::orientation::ShipOrientation;
+use crate::ship::{display_ships, validate_ships, Ship, ShipKind};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
 macro_rules! random_ship_placement {
     ($ship: ident) => {
         loop {
-            let ship = Ship::$ship(
+            let ship = ShipKind::$ship.ship(
                 Cell::new(rand::random::<u8>(), rand::random::<u8>()),
-                ShipDirection::random(),
+                ShipOrientation::random(),
             );
 
             if let Some(ship) = ship {
-                break BattlefieldCell::new(ship.cell(), ship.direction()).unwrap();
+                break ship;
             }
         }
     };
@@ -26,43 +27,13 @@ pub enum ShootState {
     Sunk,
 }
 
-pub struct BattlefieldCell(Cell, ShipDirection);
-
-impl BattlefieldCell {
-    pub fn new(cell: Cell, direction: ShipDirection) -> Option<Self> {
-        if cell.x > 9 || cell.y > 9 {
-            None
-        } else {
-            Some(Self(cell, direction))
-        }
-    }
-}
-
 pub struct Battlefield {
     ships: [Ship; 5],
     battle_shoots: [[ShootState; 10]; 10],
 }
 
 impl Battlefield {
-    pub fn new(
-        aircraft_carrier: BattlefieldCell,
-        battleship: BattlefieldCell,
-        submarine: BattlefieldCell,
-        cruiser: BattlefieldCell,
-        destroyer: BattlefieldCell,
-    ) -> Result<Self, String> {
-        let ships = [
-            Ship::aircraft_carrier(aircraft_carrier.0, aircraft_carrier.1)
-                .ok_or_else(|| "Aircraft carrier not placed".to_string())?,
-            Ship::battleship(battleship.0, battleship.1)
-                .ok_or_else(|| "Battleship not placed".to_string())?,
-            Ship::submarine(submarine.0, submarine.1)
-                .ok_or_else(|| "Submarine not placed".to_string())?,
-            Ship::cruiser(cruiser.0, cruiser.1).ok_or_else(|| "Cruiser not placed".to_string())?,
-            Ship::destroyer(destroyer.0, destroyer.1)
-                .ok_or_else(|| "Destroyer not placed".to_string())?,
-        ];
-
+    pub fn new(ships: [Ship; 5]) -> Result<Self, String> {
         // Check for overlapping ships
         validate_ships(&ships[..])?;
 
@@ -74,15 +45,37 @@ impl Battlefield {
 
     pub fn random() -> Self {
         loop {
-            if let Ok(bf) = Self::new(
-                random_ship_placement!(aircraft_carrier),
-                random_ship_placement!(battleship),
-                random_ship_placement!(submarine),
-                random_ship_placement!(cruiser),
-                random_ship_placement!(destroyer),
-            ) {
+            if let Ok(bf) = Self::new([
+                random_ship_placement!(AircraftCarrier),
+                random_ship_placement!(Battleship),
+                random_ship_placement!(Submarine),
+                random_ship_placement!(Cruiser),
+                random_ship_placement!(Destroyer),
+            ]) {
                 break bf;
             }
+        }
+    }
+
+    pub fn check(&mut self, cell: Cell) -> ShootState {
+        let mut hit = None;
+
+        for ship in &mut self.ships {
+            if ship.check_hit(&cell) {
+                hit = Some(ship);
+                break;
+            }
+        }
+
+        if let Some(ship) = hit {
+            if ship.is_sunk() {
+                self.battle_shoots[cell.y as usize][cell.x as usize] = ShootState::Sunk;
+                ShootState::Sunk
+            } else {
+                ShootState::Hit
+            }
+        } else {
+            ShootState::Miss
         }
     }
 }

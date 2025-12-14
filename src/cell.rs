@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, PartialOrd, Ord)]
 pub struct Cell {
     pub x: u8,
@@ -7,5 +9,11 @@ pub struct Cell {
 impl Cell {
     pub fn new(x: u8, y: u8) -> Self {
         Cell { x, y }
+    }
+}
+
+impl Display for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
     }
 }
