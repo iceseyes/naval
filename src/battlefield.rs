@@ -8,7 +8,7 @@ macro_rules! random_ship_placement {
     ($ship: ident) => {
         loop {
             let ship = ShipKind::$ship.ship(
-                Cell::new(rand::random::<u8>(), rand::random::<u8>()),
+                Cell::bounded(rand::random::<u8>(), rand::random::<u8>()),
                 ShipOrientation::random(),
             );
 
@@ -69,14 +69,51 @@ impl Battlefield {
 
         if let Some(ship) = hit {
             if ship.is_sunk() {
-                self.battle_shoots[cell.y as usize][cell.x as usize] = ShootState::Sunk;
-                ShootState::Sunk
+                self.battle_shoots[cell.y() as usize][cell.x() as usize] = ShootState::Sunk;
             } else {
-                ShootState::Hit
+                self.battle_shoots[cell.y() as usize][cell.x() as usize] = ShootState::Hit;
             }
         } else {
-            ShootState::Miss
+            self.battle_shoots[cell.y() as usize][cell.x() as usize] = ShootState::Miss;
         }
+
+        self.battle_shoots[cell.y() as usize][cell.x() as usize]
+    }
+
+    pub fn is_defeated(&self) -> bool {
+        self.ships.iter().all(|ship| ship.is_sunk())
+    }
+
+    pub fn attack(&mut self) -> Cell {
+        loop {
+            let x = rand::random::<u8>() % 10;
+            let y = rand::random::<u8>() % 10;
+            let cell = Cell::bounded(x, y);
+
+            if self.battle_shoots[y as usize][x as usize] == ShootState::None {
+                return cell;
+            }
+        }
+    }
+
+    pub fn display(&self) -> String {
+        let mut out = "  A B C D E F G H I J \n".to_string();
+        for (index, y) in self.battle_shoots.iter().enumerate() {
+            out.push(char::from(b'0' + index as u8));
+            out.push(' ');
+            y.iter().for_each(|o| {
+                let ch = match o {
+                    ShootState::None => ' ',
+                    ShootState::Hit | ShootState::Sunk => 'X',
+                    ShootState::Miss => '.',
+                };
+                out.push(ch);
+                out.push(' ')
+            });
+            out.push('\n');
+        }
+
+        out
     }
 }
 
@@ -87,8 +124,8 @@ impl fmt::Debug for Battlefield {
 
         for (idx, ship) in self.ships.iter().enumerate() {
             for cell in ship.occupied_cells() {
-                let x = cell.x as usize;
-                let y = cell.y as usize;
+                let x = cell.x() as usize;
+                let y = cell.y() as usize;
                 grid[y][x] = labels[idx];
             }
         }
