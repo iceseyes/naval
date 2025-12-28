@@ -1,15 +1,41 @@
+//! In the naval battle the main object is the Ship. Players deploy their fleet up on a [crate::cell::Grid].
+//! Each fleet consists of 5 ships, each of a different kind.
+//!
+//! The [ShipKind] defines the different ship types, and can be used to make a new [Ship]
+//! of a given type.
+//!
+//! A [Ship] is a set of [Cell]s in a row. User can try to hit a cell of a ship, and when all the
+//! ship cells have been hit, the ship is sunk.
+//!
+//! You have to use a given [ShipKind] in order to create a new [Ship].
+//!
 use crate::cell::Cell;
-use crate::orientation::ShipOrientation;
 use strum::Display;
 use strum_macros::EnumIter;
 
+/// The different types of ship in the game.
+///
+/// Use this type to create new ships.
+///
 #[derive(Debug, PartialEq, Eq, Clone, Display, EnumIter)]
 pub enum ShipKind {
+    /// Aircraft Carrier: the longest ship in the game, occupying 5 consecutive cells.
     #[strum(serialize = "Aircraft Carrier")]
     AircraftCarrier,
+
+    /// Battleship: a ship occupying 4 consecutive cells.
     Battleship,
+
+    /// Cruiser: a medium-sized ship occupying 3 consecutive cells.
     Cruiser,
+
+    /// Submarine: occupies 3 consecutive cells, like the Cruiser.
+    ///
+    /// Apart from the name, there is no structural difference between a Cruiser
+    /// and a Submarine.
     Submarine,
+
+    /// Destroyer: the shortest ship in the game, occupying 2 consecutive cells.
     Destroyer,
 }
 
@@ -20,10 +46,40 @@ impl ShipKind {
     const SUBMARINE_SIZE: u8 = 3;
     const DESTROYER_SIZE: u8 = 2;
 
+    /// Creates a new [`Ship`] of this kind starting from the given cell.
+    ///
+    /// A ship is defined by its starting cell (`first`) and its [`ShipOrientation`],
+    /// which determines the direction in which the ship occupies consecutive cells.
+    ///
+    /// Returns `None` if the ship would exceed the board boundaries.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use crate::{ShipKind, Cell, ShipOrientation};
+    /// let aircraft_carrier = ShipKind::AircraftCarrier
+    ///     .ship(Cell::bounded(3, 3), ShipOrientation::Vertical)
+    ///     .unwrap();
+    /// ```
+    ///
     pub fn ship(&self, first: Cell, orientation: ShipOrientation) -> Option<Ship> {
         Ship::new(self.size(), first, orientation)
     }
 
+    /// Returns a randomly placed [`Ship`] of this kind.
+    ///
+    /// Both the starting cell and the orientation are chosen at random.
+    /// The returned ship is guaranteed to fit within the game board.
+    pub fn random(&self) -> Ship {
+        loop {
+            if let Some(ship) = self.ship(Cell::random(), ShipOrientation::random()) {
+                break ship;
+            }
+        }
+    }
+
+    /// Returns the number of cells for this kind of ship
+    ///
     pub fn size(&self) -> u8 {
         match self {
             ShipKind::AircraftCarrier => Self::AIRCRAFT_CARRIER_SIZE,
@@ -35,6 +91,7 @@ impl ShipKind {
     }
 }
 
+/// Descrive a ship as item of the game
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ship {
     first_cell: Cell,
@@ -62,14 +119,6 @@ impl Ship {
         }
     }
 
-    pub fn cell(&self) -> &Cell {
-        &self.first_cell
-    }
-
-    pub fn orientation(&self) -> &ShipOrientation {
-        &self.orientation
-    }
-
     /// Returns all board cells occupied by this ship based on its
     /// origin cell, size and direction.
     pub fn occupied_cells(&self) -> Vec<Cell> {
@@ -89,12 +138,14 @@ impl Ship {
         cells
     }
 
+    /// This ship is sunk?
     pub fn is_sunk(&self) -> bool {
         self.state == 0
     }
 
-    pub fn check_hit(&mut self, cell: &Cell) -> bool {
-        let bit = self.is_hit(cell);
+    /// Check whether the given cell is a part of the ship and records the hit.
+    pub fn hit_at(&mut self, cell: &Cell) -> bool {
+        let bit = self.contains(cell);
 
         bit.map(|bit| {
             self.state &= !(1u8 << bit);
@@ -103,6 +154,11 @@ impl Ship {
         .unwrap_or(false)
     }
 
+    /// Whether the other ship is in the space of this ship
+    ///
+    /// The space a ship occupies includes all the cells that define it, plus a one-cell border around them.
+    /// If the second ship is on one or more of that cells, we say that this ship is overlapping with the second.
+    ///
     pub fn is_overlapping(&self, other: &Ship) -> bool {
         let (x_start, x_end, y_start, y_end) = match self.orientation {
             ShipOrientation::Horizontal => {
@@ -123,7 +179,7 @@ impl Ship {
 
         for x in x_start..=x_end {
             for y in y_start..=y_end {
-                if other.is_hit(&Cell::bounded(x, y)).is_some() {
+                if other.contains(&Cell::bounded(x, y)).is_some() {
                     return true;
                 }
             }
@@ -132,7 +188,11 @@ impl Ship {
         false
     }
 
-    fn is_hit(&self, cell: &Cell) -> Option<u8> {
+    /// Whether the cell belongs to the ship and which part of it is.
+    ///
+    /// Check for cell in the occupied cells and if so, returns the index of the cell, None otherwise
+    ///
+    fn contains(&self, cell: &Cell) -> Option<u8> {
         match self.orientation {
             ShipOrientation::Horizontal
                 if self.first_cell.y() == cell.y()
@@ -155,15 +215,6 @@ impl Ship {
     }
 }
 
-fn get_ship_state(size: u8) -> u8 {
-    let mut state = 0u8;
-    for i in 0u8..size {
-        state |= 2u8.pow(i as u32);
-    }
-
-    state
-}
-
 pub fn validate_ships(ships: &[Ship]) -> Result<(), &'static str> {
     for (index, ship) in ships.iter().enumerate() {
         for other_ship in ships.iter().skip(index + 1) {
@@ -176,42 +227,42 @@ pub fn validate_ships(ships: &[Ship]) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub fn as_grid(ships: &[Ship]) -> [[bool; 10]; 10] {
-    let mut grid = [[false; 10]; 10];
-
-    for ship in ships.iter() {
-        for cell in ship.occupied_cells() {
-            let x = cell.x() as usize;
-            let y = cell.y() as usize;
-            grid[y][x] = true;
-        }
-    }
-
-    grid
+/// Defines the orientation of a ship.
+///
+/// In this game, a ship can be placed either horizontally (same Y coordinate shared by all cells)
+/// or vertically (same X coordinate shared by all cells)
+///
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+pub enum ShipOrientation {
+    Horizontal,
+    Vertical,
 }
 
-pub fn display_ships(ships: &[Ship]) -> String {
-    let grid = as_grid(ships);
+impl ShipOrientation {
+    /// Return a random orientation
+    ///
+    pub fn random() -> Self {
+        match rand::random::<u8>() % 2 {
+            0 => ShipOrientation::Horizontal,
+            _ => ShipOrientation::Vertical,
+        }
+    }
+}
 
-    let mut out = "  A B C D E F G H I J \n".to_string();
-    for (index, y) in grid.iter().enumerate() {
-        out.push(char::from(b'0' + index as u8));
-        out.push(' ');
-        y.iter().for_each(|o| {
-            out.push(if *o { 'X' } else { ' ' });
-            out.push(' ')
-        });
-        out.push('\n');
+fn get_ship_state(size: u8) -> u8 {
+    let mut state = 0u8;
+    for i in 0u8..size {
+        state |= 2u8.pow(i as u32);
     }
 
-    out
+    state
 }
 
 #[cfg(test)]
 mod tests {
     use crate::cell::Cell;
-    use crate::orientation::ShipOrientation;
-    use crate::ship::{display_ships, Ship, ShipKind};
+    use crate::ship::ShipOrientation;
+    use crate::ship::{Ship, ShipKind};
     use rstest::rstest;
 
     #[rstest]
@@ -296,7 +347,7 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
             .unwrap();
-        assert_eq!(ship.check_hit(&Cell::bounded(x, y)), expected);
+        assert_eq!(ship.hit_at(&Cell::bounded(x, y)), expected);
     }
 
     #[rstest]
@@ -320,7 +371,7 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(5, 5), ShipOrientation::Horizontal)
             .unwrap();
-        assert_eq!(ship.check_hit(&Cell::bounded(x, y)), expected);
+        assert_eq!(ship.hit_at(&Cell::bounded(x, y)), expected);
     }
 
     #[rstest]
@@ -336,7 +387,7 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(0, 0), ShipOrientation::Vertical)
             .unwrap();
-        assert_eq!(ship.check_hit(&Cell::bounded(x, y)), expected);
+        assert_eq!(ship.hit_at(&Cell::bounded(x, y)), expected);
     }
 
     #[rstest]
@@ -360,7 +411,7 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(5, 5), ShipOrientation::Vertical)
             .unwrap();
-        assert_eq!(ship.check_hit(&Cell::bounded(x, y)), expected);
+        assert_eq!(ship.hit_at(&Cell::bounded(x, y)), expected);
     }
 
     #[test]
@@ -368,11 +419,11 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
             .unwrap();
-        ship.check_hit(&Cell::bounded(0, 0));
+        ship.hit_at(&Cell::bounded(0, 0));
         assert_eq!(ship.state, 0x1e);
-        ship.check_hit(&Cell::bounded(5, 0));
+        ship.hit_at(&Cell::bounded(5, 0));
         assert_eq!(ship.state, 0x1e);
-        ship.check_hit(&Cell::bounded(4, 0));
+        ship.hit_at(&Cell::bounded(4, 0));
         assert_eq!(ship.state, 0x0e);
     }
 
@@ -382,15 +433,15 @@ mod tests {
             .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
             .unwrap();
         assert!(!ship.is_sunk());
-        ship.check_hit(&Cell::bounded(0, 0));
+        ship.hit_at(&Cell::bounded(0, 0));
         assert!(!ship.is_sunk());
-        ship.check_hit(&Cell::bounded(1, 0));
+        ship.hit_at(&Cell::bounded(1, 0));
         assert!(!ship.is_sunk());
-        ship.check_hit(&Cell::bounded(2, 0));
+        ship.hit_at(&Cell::bounded(2, 0));
         assert!(!ship.is_sunk());
-        ship.check_hit(&Cell::bounded(3, 0));
+        ship.hit_at(&Cell::bounded(3, 0));
         assert!(!ship.is_sunk());
-        ship.check_hit(&Cell::bounded(4, 0));
+        ship.hit_at(&Cell::bounded(4, 0));
         assert!(ship.is_sunk());
     }
 
@@ -415,63 +466,17 @@ mod tests {
     }
 
     #[rstest]
-    fn test_display_ships() {
-        let ships = [];
-        display_ships(&ships);
-
-        #[rustfmt::skip]
-        assert_eq!(
-            display_ships(&ships),
-                  "  A B C D E F G H I J \n".to_owned()
-                + "0                     \n"
-                + "1                     \n"
-                + "2                     \n"
-                + "3                     \n"
-                + "4                     \n"
-                + "5                     \n"
-                + "6                     \n"
-                + "7                     \n"
-                + "8                     \n"
-                + "9                     \n"
-        );
-
-        let ships = vec![
-            // A: Aircraft carrier, horizontal on row 0
-            ShipKind::AircraftCarrier
-                .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
-                .unwrap(),
-            // B: Battleship, vertical starting at (0, 2)
-            ShipKind::Battleship
-                .ship(Cell::bounded(0, 2), ShipOrientation::Vertical)
-                .unwrap(),
-            // S: Submarine, horizontal at (5, 5)
-            ShipKind::Submarine
-                .ship(Cell::bounded(5, 5), ShipOrientation::Horizontal)
-                .unwrap(),
-            // C: Cruiser, vertical at (9, 0)
-            ShipKind::Cruiser
-                .ship(Cell::bounded(9, 0), ShipOrientation::Vertical)
-                .unwrap(),
-            // D: Destroyer, horizontal at (7, 9)
-            ShipKind::Destroyer
-                .ship(Cell::bounded(7, 9), ShipOrientation::Horizontal)
-                .unwrap(),
-        ];
-
-        #[rustfmt::skip]
-        assert_eq!(
-            display_ships(&ships),
-                  "  A B C D E F G H I J \n".to_owned()
-                + "0 X X X X X         X \n"
-                + "1                   X \n"
-                + "2 X                 X \n"
-                + "3 X                   \n"
-                + "4 X                   \n"
-                + "5 X         X X X     \n"
-                + "6                     \n"
-                + "7                     \n"
-                + "8                     \n"
-                + "9               X X   \n"
-        );
+    fn test_random_ship() {
+        let ship1 = ShipKind::AircraftCarrier.random();
+        let mut counter = 0;
+        loop {
+            counter += 1;
+            let tmp = ShipKind::AircraftCarrier.random();
+            if ship1 != tmp {
+                break;
+            } else if counter > 10 {
+                panic!("Random ship is always the same!");
+            }
+        }
     }
 }

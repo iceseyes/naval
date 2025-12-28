@@ -1,6 +1,6 @@
-use crate::cell::Cell;
-use crate::orientation::ShipOrientation;
-use crate::ship::{display_ships, validate_ships, Ship, ShipKind};
+use crate::cell::{Cell, Grid};
+use crate::ship::ShipOrientation;
+use crate::ship::{validate_ships, Ship, ShipKind};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
@@ -61,7 +61,7 @@ impl Battlefield {
         let mut hit = None;
 
         for ship in &mut self.ships {
-            if ship.check_hit(&cell) {
+            if ship.hit_at(&cell) {
                 hit = Some(ship);
                 break;
             }
@@ -142,6 +142,7 @@ impl fmt::Debug for Battlefield {
 
 impl Display for Battlefield {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", display_ships(&self.ships[..]))
+        let grid = Grid::from_ships(&self.ships);
+        write!(f, "{}", grid)
     }
 }

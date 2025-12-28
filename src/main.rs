@@ -1,13 +1,12 @@
 use crate::battlefield::{Battlefield, ShootState};
-use crate::cell::Cell;
-use crate::ship::{display_ships, validate_ships, Ship, ShipKind};
-use orientation::ShipOrientation;
+use crate::cell::{Cell, Grid};
+use crate::ship::{validate_ships, Ship, ShipKind};
+use ship::ShipOrientation;
 use std::str::Chars;
 use strum::IntoEnumIterator;
 
 mod battlefield;
 mod cell;
-mod orientation;
 mod ship;
 
 struct Game {
@@ -112,7 +111,8 @@ fn add_ship(player_fleet: &mut Vec<Ship>, kind: ShipKind) {
         }
     }
 
-    println!("{}", display_ships(player_fleet.as_slice()));
+    let grid = Grid::from_ships(player_fleet.as_slice());
+    println!("{}", grid);
 }
 
 fn parse_ship_position(coordinates: &str) -> Result<(u8, u8, ShipOrientation), String> {

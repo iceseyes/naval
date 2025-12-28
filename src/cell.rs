@@ -1,19 +1,18 @@
-/// This module represents a battlefield space for naval battle game.
-///
-/// The naval battle game is played on a 10x10 grid where players place ships and take notes of hits and misses.
-/// Each cell in the grid can be empty, occupied by a ship, or report a shoot result: miss, hit, or sunk.
-/// When a shoot is made, you can hit a ship or miss it. Whenever a ship is completely hit, it is considered sunk.
-///
-/// The battlefield grid is divided into cells, each represented by the `Cell` struct with x and y coordinates.
-/// The `Grid` struct represents the entire 10x10 grid and maintains the state of each cell using the `CellState` enum.
-/// The `CellState` enum has four variants: `Empty`, `Occupied`, `Hit`, and `Sunk`.
-///
+//! This module represents a battlefield space for naval battle game.
+//!
+//! The naval battle game is played on a 10x10 grid where players place ships and take notes of hits and misses.
+//! Each cell in the grid can be empty, occupied by a ship, or report a shoot result: miss, hit, or sunk.
+//! When a shoot is made, you can hit a ship or miss it. Whenever a ship is completely hit, it is considered sunk.
+//!
+//! The battlefield grid is divided into cells, each represented by the `Cell` struct with x and y coordinates.
+//! The `Grid` struct represents the entire 10x10 grid and maintains the state of each cell using the `CellState` enum.
+//! The `CellState` enum has four variants: `Empty`, `Occupied`, `Hit`, and `Sunk`.
+//!
 use crate::ship::Ship;
 use std::cmp::min;
-use std::fmt::{Display, Formatter, Pointer};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use thiserror::Error;
-
 
 /// Represents the state of a cell in the battlefield grid.
 ///
@@ -136,6 +135,14 @@ impl Cell {
     pub fn bounded(x: u8, y: u8) -> Self {
         let x = min(x, Self::MAX_X);
         let y = min(y, Self::MAX_Y);
+
+        Cell { x, y }
+    }
+
+    /// Return a cell using random coordinates.
+    pub fn random() -> Self {
+        let x = rand::random::<u8>() % Self::MAX_X;
+        let y = rand::random::<u8>() % Self::MAX_Y;
 
         Cell { x, y }
     }
@@ -328,8 +335,8 @@ impl Display for Grid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::orientation::ShipOrientation;
     use crate::ship::ShipKind;
+    use crate::ship::ShipOrientation;
     use rstest::rstest;
 
     #[rstest]
