@@ -119,8 +119,10 @@ impl Ship {
         }
     }
 
-    /// Returns all board cells occupied by this ship based on its
-    /// origin cell, size and direction.
+    /// Returns all cells occupied by this ship.
+    ///
+    /// In a [crate::cell::Grid] all this cells will be set as [crate::cell::CellState::Occupied].
+    ///
     pub fn occupied_cells(&self) -> Vec<Cell> {
         let mut cells = Vec::with_capacity(self.ship_size as usize);
         match self.orientation {
@@ -207,11 +209,80 @@ impl Ship {
                     && (self.first_cell.y()..(self.first_cell.y() + self.ship_size))
                         .contains(&cell.y()) =>
             {
-                Some(cell.x() - self.first_cell.x())
+                Some(cell.y() - self.first_cell.y())
             }
 
             _ => None,
         }
+    }
+}
+
+/// A fleet is a collection of ships, one for each [`ShipKind`].
+///
+/// A fleet is constructed using a builder function that, given a ship kind,
+/// returns a ship of that kind. A generated ship may be rejected if it overlaps
+/// with ships already present in the fleet, so the builder function must take
+/// this possibility into account.
+///
+/// # Example
+///
+/// ```rust
+/// let fleet = Fleet::build(|kind| { kind.random() });
+/// ```
+///
+pub struct Fleet([Ship; 5]);
+
+impl Fleet {
+    // defines the order in which the ships are stored into internal array
+    const COMPOSITION: [ShipKind; 5] = [
+        ShipKind::AircraftCarrier,
+        ShipKind::Battleship,
+        ShipKind::Cruiser,
+        ShipKind::Submarine,
+        ShipKind::Destroyer,
+    ];
+
+    /// Builds a fleet using builder function to get a new ship of a given type.
+    ///
+    /// This method calls for each kind of ship the builder function given as an argument. If the
+    /// ship built is overlapping with others in the fleet, the builder function is called again until
+    /// it builds a valid one.
+    ///
+    pub fn build<Builder, Context>(context: &mut Context, builder: Builder) -> Self
+    where
+        Builder: Fn(&mut Context, &ShipKind) -> Ship,
+    {
+        let mut ships = Vec::<Ship>::with_capacity(Self::COMPOSITION.len());
+        for kind in Self::COMPOSITION.iter() {
+            loop {
+                let ship = builder(context, kind);
+                if ships.iter().any(|s| s.is_overlapping(&ship)) {
+                    continue;
+                }
+
+                ships.push(ship);
+                break;
+            }
+        }
+        let tmp: [Ship; 5] = ships.try_into().unwrap();
+
+        Self(tmp)
+    }
+
+    /// Builds a new fleet using a simple builder function (without context)
+    ///
+    pub fn new<Builder>(builder: Builder) -> Self
+    where
+        Builder: Fn(&ShipKind) -> Ship,
+    {
+        let mut _context = ();
+        Self::build(&mut _context, |_, kind| builder(kind))
+    }
+
+    /// Builds a new fleet using random ship positions
+    ///
+    pub fn random() -> Self {
+        Self::new(|kind| kind.random())
     }
 }
 
@@ -261,7 +332,7 @@ fn get_ship_state(size: u8) -> u8 {
 #[cfg(test)]
 mod tests {
     use crate::cell::Cell;
-    use crate::ship::ShipOrientation;
+    use crate::ship::{Fleet, ShipOrientation};
     use crate::ship::{Ship, ShipKind};
     use rstest::rstest;
 
@@ -360,7 +431,6 @@ mod tests {
     #[case(5, 5, true)]
     #[case(7, 5, true)]
     #[case(9, 5, true)]
-    #[case(10, 5, false)]
     #[case(5, 6, false)]
     #[case(7, 6, false)]
     #[case(9, 6, false)]
@@ -371,7 +441,7 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(5, 5), ShipOrientation::Horizontal)
             .unwrap();
-        assert_eq!(ship.hit_at(&Cell::bounded(x, y)), expected);
+        assert_eq!(ship.hit_at(&Cell::new(x, y).unwrap()), expected);
     }
 
     #[rstest]
@@ -400,7 +470,6 @@ mod tests {
     #[case(5, 5, true)]
     #[case(5, 7, true)]
     #[case(5, 9, true)]
-    #[case(5, 10, false)]
     #[case(6, 5, false)]
     #[case(6, 7, false)]
     #[case(6, 9, false)]
@@ -411,7 +480,7 @@ mod tests {
         let mut ship = ShipKind::AircraftCarrier
             .ship(Cell::bounded(5, 5), ShipOrientation::Vertical)
             .unwrap();
-        assert_eq!(ship.hit_at(&Cell::bounded(x, y)), expected);
+        assert_eq!(ship.hit_at(&Cell::new(x, y).unwrap()), expected);
     }
 
     #[test]
@@ -427,37 +496,65 @@ mod tests {
         assert_eq!(ship.state, 0x0e);
     }
 
-    #[test]
-    fn test_is_sunk() {
-        let mut ship = ShipKind::AircraftCarrier
-            .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+    #[rstest]
+    #[case::at_0_0(0, 0)]
+    #[case::at_4_0(4, 0)]
+    #[case::at_5_0(5, 0)]
+    #[case::at_5_5(5, 5)]
+    #[case::at_5_4(5, 4)]
+    #[case::at_4_5(4, 5)]
+    #[trace]
+    fn test_is_sunk(
+        #[case] x_start: u8,
+        #[case] y_start: u8,
+
+        #[values(ShipKind::AircraftCarrier, ShipKind::Battleship)] kind: ShipKind,
+
+        #[values(ShipOrientation::Horizontal, ShipOrientation::Vertical)]
+        orientation: ShipOrientation,
+    ) {
+        let mut ship = kind
+            .ship(Cell::new(x_start, y_start).unwrap(), orientation)
             .unwrap();
-        assert!(!ship.is_sunk());
-        ship.hit_at(&Cell::bounded(0, 0));
-        assert!(!ship.is_sunk());
-        ship.hit_at(&Cell::bounded(1, 0));
-        assert!(!ship.is_sunk());
-        ship.hit_at(&Cell::bounded(2, 0));
-        assert!(!ship.is_sunk());
-        ship.hit_at(&Cell::bounded(3, 0));
-        assert!(!ship.is_sunk());
-        ship.hit_at(&Cell::bounded(4, 0));
+
+        let range = if orientation == ShipOrientation::Horizontal {
+            x_start..(x_start + kind.size())
+        } else {
+            y_start..(y_start + kind.size())
+        };
+
+        for r in range {
+            assert!(!ship.is_sunk());
+
+            let cell = if orientation == ShipOrientation::Horizontal {
+                Cell::new(r, y_start)
+            } else {
+                Cell::new(x_start, r)
+            }
+            .unwrap();
+            ship.hit_at(&cell);
+        }
+
         assert!(ship.is_sunk());
     }
 
     #[rstest]
     #[case(
         ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Horizontal).unwrap(),
-        ShipKind::AircraftCarrier.ship(Cell::new(4, 4).unwrap(), ShipOrientation::Horizontal).unwrap())]
+        ShipKind::AircraftCarrier.ship(Cell::new(4, 4).unwrap(), ShipOrientation::Horizontal).unwrap()
+    )]
     #[case(
         ShipKind::AircraftCarrier.ship(Cell::new(4, 4).unwrap(), ShipOrientation::Horizontal).unwrap(),
-        ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Horizontal).unwrap())]
+        ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Horizontal).unwrap()
+    )]
     #[case(
         ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Horizontal).unwrap(),
-        ShipKind::AircraftCarrier.ship(Cell::new(4, 4).unwrap(), ShipOrientation::Vertical).unwrap())]
+        ShipKind::AircraftCarrier.ship(Cell::new(4, 4).unwrap(), ShipOrientation::Vertical).unwrap()
+    )]
     #[case(
         ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Horizontal).unwrap(),
-        ShipKind::AircraftCarrier.ship(Cell::new(4, 0).unwrap(), ShipOrientation::Vertical).unwrap())]
+        ShipKind::AircraftCarrier.ship(Cell::new(4, 0).unwrap(), ShipOrientation::Vertical).unwrap()
+    )]
     #[case(
         ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Vertical).unwrap(),
         ShipKind::Submarine.ship(Cell::new(0, 4).unwrap(), ShipOrientation::Horizontal).unwrap())]
@@ -478,5 +575,106 @@ mod tests {
                 panic!("Random ship is always the same!");
             }
         }
+    }
+
+    #[rstest]
+    fn test_build_fleet() {
+        let mut data = vec![
+            // Aircraft carrier
+            (Cell::bounded(3, 3), ShipOrientation::Vertical),
+            // Battleship
+            (Cell::bounded(3, 0), ShipOrientation::Horizontal),
+            // Cruiser (overlap)
+            (Cell::bounded(5, 1), ShipOrientation::Vertical),
+            // Cruiser (good)
+            (Cell::bounded(5, 2), ShipOrientation::Vertical),
+            // Submarine
+            (Cell::bounded(7, 2), ShipOrientation::Horizontal),
+            // Destroyer
+            (Cell::bounded(5, 9), ShipOrientation::Horizontal),
+        ];
+
+        let fleet = Fleet::build(&mut data, |data, kind| {
+            let item = data.remove(0);
+            kind.ship(item.0, item.1).unwrap()
+        });
+
+        assert_eq!(
+            fleet.0[0],
+            ShipKind::AircraftCarrier
+                .ship(Cell::new(3, 3).unwrap(), ShipOrientation::Vertical)
+                .unwrap()
+        );
+
+        assert_eq!(
+            fleet.0[1],
+            ShipKind::Battleship
+                .ship(Cell::new(3, 0).unwrap(), ShipOrientation::Horizontal)
+                .unwrap()
+        );
+
+        assert_eq!(
+            fleet.0[2],
+            ShipKind::Cruiser
+                .ship(Cell::new(5, 2).unwrap(), ShipOrientation::Vertical)
+                .unwrap()
+        );
+
+        assert_eq!(
+            fleet.0[3],
+            ShipKind::Submarine
+                .ship(Cell::new(7, 2).unwrap(), ShipOrientation::Horizontal)
+                .unwrap()
+        );
+
+        assert_eq!(
+            fleet.0[4],
+            ShipKind::Destroyer
+                .ship(Cell::new(5, 9).unwrap(), ShipOrientation::Horizontal)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_new_fleet() {
+        let aircraft_carrier = ShipKind::AircraftCarrier
+            .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+            .unwrap();
+        let battleship = ShipKind::Battleship
+            .ship(Cell::bounded(0, 2), ShipOrientation::Horizontal)
+            .unwrap();
+        let cruiser = ShipKind::Cruiser
+            .ship(Cell::bounded(0, 4), ShipOrientation::Horizontal)
+            .unwrap();
+        let submarine = ShipKind::Submarine
+            .ship(Cell::bounded(0, 6), ShipOrientation::Horizontal)
+            .unwrap();
+        let destroyer = ShipKind::Destroyer
+            .ship(Cell::bounded(0, 8), ShipOrientation::Horizontal)
+            .unwrap();
+        let fleet = Fleet::new(|kind| match kind {
+            ShipKind::AircraftCarrier => aircraft_carrier.clone(),
+            ShipKind::Battleship => battleship.clone(),
+            ShipKind::Cruiser => cruiser.clone(),
+            ShipKind::Submarine => submarine.clone(),
+            ShipKind::Destroyer => destroyer.clone(),
+        });
+
+        assert_eq!(fleet.0[0], aircraft_carrier);
+        assert_eq!(fleet.0[1], battleship);
+        assert_eq!(fleet.0[2], cruiser);
+        assert_eq!(fleet.0[3], submarine);
+        assert_eq!(fleet.0[4], destroyer);
+    }
+
+    #[test]
+    fn test_random_fleet() {
+        let fleet = Fleet::random();
+        assert_eq!(fleet.0.len(), 5);
+        assert!(
+            &fleet.0[1..]
+                .iter()
+                .all(|ship| !fleet.0[0].is_overlapping(ship))
+        )
     }
 }
