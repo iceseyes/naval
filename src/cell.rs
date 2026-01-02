@@ -156,6 +156,42 @@ impl Cell {
     pub fn y(&self) -> u8 {
         self.y
     }
+
+    /// Moves this cell to the left.
+    ///
+    /// This method automatically wraps around if the cell is at the leftmost position.
+    pub fn move_left(&mut self) {
+        self.x = self.x.checked_sub(1).unwrap_or(Self::MAX_X);
+    }
+
+    /// Moves this cell to the right.
+    ///
+    /// This method automatically wraps around if the cell is at the rightmost position.
+    pub fn move_right(&mut self) {
+        if self.x == Self::MAX_X {
+            self.x = 0;
+        } else {
+            self.x = self.x.saturating_add(1);
+        }
+    }
+
+    /// Moves this cell up
+    ///
+    /// This method automatically wraps around if the cell is on the top
+    pub fn move_up(&mut self) {
+        self.y = self.y.checked_sub(1).unwrap_or(Self::MAX_Y);
+    }
+
+    /// Moves this cell down
+    ///
+    /// This method automatically wraps around if the cell is on the bottom
+    pub fn move_down(&mut self) {
+        if self.y == Self::MAX_Y {
+            self.y = 0;
+        } else {
+            self.y = self.y.saturating_add(1);
+        }
+    }
 }
 
 impl FromStr for Cell {
@@ -266,9 +302,6 @@ impl Grid {
     /// let grid = Grid::from_ships(ships.as_slice();
     /// assert!(!grid.is_empty())
     /// ```
-    ///
-    /// # parameters
-    /// ships:
     ///
     pub fn from_ships(ships: &[Ship]) -> Self {
         let mut grid = Grid::default();
@@ -408,6 +441,38 @@ mod tests {
     #[case(Cell::bounded(5, 7), "F8")]
     fn test_cell_display(#[case] cell: Cell, #[case] expected: &str) {
         assert_eq!(format!("{}", cell), expected);
+    }
+
+    #[rstest]
+    #[case(Cell::bounded(5, 5), Cell::bounded(4, 5))]
+    #[case(Cell::bounded(0, 5), Cell::bounded(9, 5))]
+    fn test_move_left(#[case] mut cell: Cell, #[case] expected: Cell) {
+        cell.move_left();
+        assert_eq!(cell, expected);
+    }
+
+    #[rstest]
+    #[case(Cell::bounded(5, 5), Cell::bounded(6, 5))]
+    #[case(Cell::bounded(9, 5), Cell::bounded(0, 5))]
+    fn test_move_right(#[case] mut cell: Cell, #[case] expected: Cell) {
+        cell.move_right();
+        assert_eq!(cell, expected);
+    }
+
+    #[rstest]
+    #[case(Cell::bounded(5, 5), Cell::bounded(5, 4))]
+    #[case(Cell::bounded(5, 0), Cell::bounded(5, 9))]
+    fn test_move_up(#[case] mut cell: Cell, #[case] expected: Cell) {
+        cell.move_up();
+        assert_eq!(cell, expected);
+    }
+
+    #[rstest]
+    #[case(Cell::bounded(5, 5), Cell::bounded(5, 6))]
+    #[case(Cell::bounded(5, 9), Cell::bounded(5, 0))]
+    fn test_move_down(#[case] mut cell: Cell, #[case] expected: Cell) {
+        cell.move_down();
+        assert_eq!(cell, expected);
     }
 
     #[rstest]
