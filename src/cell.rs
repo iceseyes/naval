@@ -290,12 +290,12 @@ impl Grid {
     }
 
     /// The state of the passed cell
-    pub fn at(&self, cell: Cell) -> &CellState {
+    pub fn at(&self, cell: &Cell) -> &CellState {
         &self.cells[cell.y as usize][cell.x as usize]
     }
 
     /// Overwrite the chosen cell with the passed state, it doesn't mind which was its previous state.
-    pub fn mark(&mut self, cell: Cell, state: CellState) {
+    pub fn mark(&mut self, cell: &Cell, state: CellState) {
         self.cells[cell.y as usize][cell.x as usize] = state;
     }
 }
@@ -427,22 +427,22 @@ mod tests {
         ];
 
         let grid = Grid::from_ships(ships.as_slice());
-        assert_eq!(*grid.at(Cell::bounded(0, 0)), CellState::Occupied);
-        assert_eq!(*grid.at(Cell::bounded(1, 0)), CellState::Occupied);
-        assert_eq!(*grid.at(Cell::bounded(3, 3)), CellState::Occupied);
-        assert_eq!(*grid.at(Cell::bounded(3, 4)), CellState::Occupied);
-        assert_eq!(*grid.at(Cell::bounded(4, 3)), CellState::Empty);
-        assert_eq!(*grid.at(Cell::bounded(2, 3)), CellState::Empty);
+        assert_eq!(*grid.at(&Cell::bounded(0, 0)), CellState::Occupied);
+        assert_eq!(*grid.at(&Cell::bounded(1, 0)), CellState::Occupied);
+        assert_eq!(*grid.at(&Cell::bounded(3, 3)), CellState::Occupied);
+        assert_eq!(*grid.at(&Cell::bounded(3, 4)), CellState::Occupied);
+        assert_eq!(*grid.at(&Cell::bounded(4, 3)), CellState::Empty);
+        assert_eq!(*grid.at(&Cell::bounded(2, 3)), CellState::Empty);
     }
 
     #[rstest]
     fn test_grid_mark_and_at() {
         let mut grid = Grid::default();
-        assert_eq!(*grid.at(Cell::bounded(3, 3)), CellState::Empty);
-        grid.mark(Cell::bounded(3, 3), CellState::Occupied);
-        assert_eq!(*grid.at(Cell::bounded(3, 3)), CellState::Occupied);
-        grid.mark(Cell::bounded(3, 3), CellState::Miss);
-        assert_eq!(*grid.at(Cell::bounded(3, 3)), CellState::Miss);
+        assert_eq!(*grid.at(&Cell::bounded(3, 3)), CellState::Empty);
+        grid.mark(&Cell::bounded(3, 3), CellState::Occupied);
+        assert_eq!(*grid.at(&Cell::bounded(3, 3)), CellState::Occupied);
+        grid.mark(&Cell::bounded(3, 3), CellState::Miss);
+        assert_eq!(*grid.at(&Cell::bounded(3, 3)), CellState::Miss);
     }
 
     #[rustfmt::skip]
@@ -463,9 +463,9 @@ mod tests {
                 + "09                     \n"
                 + "10                     \n"
         );
-    grid.mark(Cell::bounded(0, 0), CellState::Occupied);
-    grid.mark(Cell::bounded(1, 1), CellState::Miss);
-    grid.mark(Cell::bounded(2, 2), CellState::Hit);
+    grid.mark(&Cell::bounded(0, 0), CellState::Occupied);
+    grid.mark(&Cell::bounded(1, 1), CellState::Miss);
+    grid.mark(&Cell::bounded(2, 2), CellState::Hit);
     assert_eq!(
             format!("{}", grid),
                   "   A B C D E F G H I J \n".to_owned()

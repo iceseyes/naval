@@ -308,6 +308,15 @@ impl Fleet {
     pub fn is_sunk(&self) -> bool {
         self.0.iter().all(|ship| ship.is_sunk())
     }
+
+    /// Returns the ship by its type
+    pub fn get(&self, kind: &ShipKind) -> &Ship {
+        Self::COMPOSITION
+            .iter()
+            .position(|ship| ship == kind)
+            .map(|index| &self.0[index])
+            .unwrap()
+    }
 }
 
 impl AsRef<[Ship]> for Fleet {
