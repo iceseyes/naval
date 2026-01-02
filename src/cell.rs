@@ -257,9 +257,10 @@ pub struct Grid {
 impl Grid {
     /// Build a new grid with only empty or occupied cells.
     ///
-    /// The occupied cells matches the position and the size of every ship in the slice passed as argument
+    /// The occupied cells match the position and the size of every ship in the slice passed as argument
     ///
     /// # Examples
+    ///
     /// ```rust
     /// let ships = vec![ShipKind::AircraftCarrier.ship(Cell::new(3, 3).unwrap(), ShipOrientation::Horizontal).unwrap()];
     /// let grid = Grid::from_ships(ships.as_slice();
@@ -304,6 +305,7 @@ impl Display for Grid {
     ///
     /// The output consists in a ascii representation of the grid in a way like this:
     ///
+    /// ```text
     ///     A B C D E F G H I J
     ///  00
     ///  01
@@ -311,6 +313,7 @@ impl Display for Grid {
     ///  ..    ..Grid content..
     ///  09    ................
     ///  10
+    /// ```
     ///
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut output = "   A B C D E F G H I J \n".to_string();

@@ -78,8 +78,7 @@ impl ShipKind {
         }
     }
 
-    /// Returns the number of cells for this kind of ship
-    ///
+    /// Returns the number of cells for this kind of ship.
     pub fn size(&self) -> u8 {
         match self {
             ShipKind::AircraftCarrier => Self::AIRCRAFT_CARRIER_SIZE,
@@ -91,7 +90,7 @@ impl ShipKind {
     }
 }
 
-/// Descrive a ship as item of the game
+/// Describes a ship as an item of the game.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ship {
     first_cell: Cell,
@@ -121,8 +120,7 @@ impl Ship {
 
     /// Returns all cells occupied by this ship.
     ///
-    /// In a [crate::cell::Grid] all this cells will be set as [crate::cell::CellState::Occupied].
-    ///
+    /// In a [crate::cell::Grid], all these cells will be set to [crate::cell::CellState::Occupied].
     pub fn occupied_cells(&self) -> Vec<Cell> {
         let mut cells = Vec::with_capacity(self.ship_size as usize);
         match self.orientation {
@@ -140,12 +138,12 @@ impl Ship {
         cells
     }
 
-    /// This ship is sunk?
+    /// Returns `true` if the ship is sunk.
     pub fn is_sunk(&self) -> bool {
         self.state == 0
     }
 
-    /// Check whether the given cell is a part of the ship and records the hit.
+    /// Checks whether the given cell is a part of the ship and records the hit.
     pub fn hit_at(&mut self, cell: &Cell) -> bool {
         let bit = self.contains(cell);
 
@@ -156,11 +154,10 @@ impl Ship {
         .unwrap_or(false)
     }
 
-    /// Whether the other ship is in the space of this ship
+    /// Returns `true` if the other ship is in the space of this ship.
     ///
     /// The space a ship occupies includes all the cells that define it, plus a one-cell border around them.
-    /// If the second ship is on one or more of that cells, we say that this ship is overlapping with the second.
-    ///
+    /// If the second ship is on one or more of those cells, the ships are considered to be overlapping.
     pub fn is_overlapping(&self, other: &Ship) -> bool {
         let (x_start, x_end, y_start, y_end) = match self.orientation {
             ShipOrientation::Horizontal => {
@@ -190,10 +187,10 @@ impl Ship {
         false
     }
 
-    /// Whether the cell belongs to the ship and which part of it is.
+    /// Checks if the cell belongs to the ship and returns its relative index.
     ///
-    /// Check for cell in the occupied cells and if so, returns the index of the cell, None otherwise
-    ///
+    /// If the cell is one of the occupied cells, returns the index (0..size),
+    /// otherwise returns `None`.
     fn contains(&self, cell: &Cell) -> Option<u8> {
         match self.orientation {
             ShipOrientation::Horizontal
@@ -227,7 +224,9 @@ impl Ship {
 /// # Example
 ///
 /// ```rust
-/// let fleet = Fleet::build(|kind| { kind.random() });
+/// let fleet = Fleet::new(|kind| { kind.random() });
+/// let grid = Grid::new(fleet.ships());
+/// println!("{:?}", grid);
 /// ```
 ///
 pub struct Fleet([Ship; 5]);
@@ -248,14 +247,20 @@ impl Fleet {
     /// ship built is overlapping with others in the fleet, the builder function is called again until
     /// it builds a valid one.
     ///
-    pub fn build<Builder, Context>(context: &mut Context, builder: Builder) -> Self
+    /// # Example
+    ///
+    /// ```rust
+    /// let fleet = Fleet::build(|kind| kind.random());
+    /// ```
+    ///
+    pub fn build<Builder>(mut builder: Builder) -> Self
     where
-        Builder: Fn(&mut Context, &ShipKind) -> Ship,
+        Builder: FnMut(&ShipKind) -> Ship,
     {
         let mut ships = Vec::<Ship>::with_capacity(Self::COMPOSITION.len());
         for kind in Self::COMPOSITION.iter() {
             loop {
-                let ship = builder(context, kind);
+                let ship = builder(kind);
                 if ships.iter().any(|s| s.is_overlapping(&ship)) {
                     continue;
                 }
@@ -269,20 +274,54 @@ impl Fleet {
         Self(tmp)
     }
 
-    /// Builds a new fleet using a simple builder function (without context)
+    /// Evaluates if the attacked cell hits a ship
     ///
-    pub fn new<Builder>(builder: Builder) -> Self
-    where
-        Builder: Fn(&ShipKind) -> Ship,
-    {
-        let mut _context = ();
-        Self::build(&mut _context, |_, kind| builder(kind))
+    /// # Examples
+    ///
+    /// ```rust
+    /// let ships = [
+    ///      Cell::bounded(0, 0),
+    ///      Cell::bounded(2, 0),
+    ///      Cell::bounded(4, 0),
+    ///      Cell::bounded(6, 0),
+    ///      Cell::bounded(8, 0),
+    ///  ];
+    ///  let mut ships = ships.iter();
+    ///
+    ///  let mut fleet = Fleet::build(|kind| {
+    ///      kind.ship(ships.next().unwrap().clone(), ShipOrientation::Vertical)
+    ///          .unwrap()
+    ///  });
+    ///
+    ///  let cell = Cell::new(0, 0).unwrap();
+    ///  assert_eq!(fleet.hit_at(&cell), Some(ShipKind::AircraftCarrier));
+    ///
+    ///  let cell = Cell::new(1, 0).unwrap();
+    ///  assert_eq!(fleet.hit_at(&cell), None);
+    /// ```
+    pub fn hit_at(&mut self, cell: &Cell) -> Option<ShipKind> {
+        let index = self.0.iter_mut().position(|ship| ship.hit_at(cell));
+        index.map(|index| Self::COMPOSITION[index].clone())
     }
 
-    /// Builds a new fleet using random ship positions
+    /// Checks whether all the ships are sunk
+    pub fn is_sunk(&self) -> bool {
+        self.0.iter().all(|ship| ship.is_sunk())
+    }
+}
+
+impl AsRef<[Ship]> for Fleet {
+    /// Returns a slice containing all the ships in the fleet.
     ///
-    pub fn random() -> Self {
-        Self::new(|kind| kind.random())
+    /// # Examples
+    ///
+    /// ```rust
+    /// let fleet = Fleet::random();
+    /// let grid = Grid::new(fleet.ships());
+    /// println!("{:?}", grid);
+    /// ```
+    fn as_ref(&self) -> &[Ship] {
+        &self.0
     }
 }
 
@@ -300,8 +339,8 @@ pub fn validate_ships(ships: &[Ship]) -> Result<(), &'static str> {
 
 /// Defines the orientation of a ship.
 ///
-/// In this game, a ship can be placed either horizontally (same Y coordinate shared by all cells)
-/// or vertically (same X coordinate shared by all cells)
+/// In this game, a ship can be placed either horizontally (the same Y coordinate shared by all cells)
+/// or vertically (the same X coordinate shared by all cells)
 ///
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub enum ShipOrientation {
@@ -578,7 +617,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_build_fleet() {
+    fn test_build_fleet_with_overlapping_ships() {
         let mut data = vec![
             // Aircraft carrier
             (Cell::bounded(3, 3), ShipOrientation::Vertical),
@@ -594,7 +633,7 @@ mod tests {
             (Cell::bounded(5, 9), ShipOrientation::Horizontal),
         ];
 
-        let fleet = Fleet::build(&mut data, |data, kind| {
+        let fleet = Fleet::build(|kind| {
             let item = data.remove(0);
             kind.ship(item.0, item.1).unwrap()
         });
@@ -652,7 +691,7 @@ mod tests {
         let destroyer = ShipKind::Destroyer
             .ship(Cell::bounded(0, 8), ShipOrientation::Horizontal)
             .unwrap();
-        let fleet = Fleet::new(|kind| match kind {
+        let fleet = Fleet::build(|kind| match kind {
             ShipKind::AircraftCarrier => aircraft_carrier.clone(),
             ShipKind::Battleship => battleship.clone(),
             ShipKind::Cruiser => cruiser.clone(),
@@ -667,14 +706,46 @@ mod tests {
         assert_eq!(fleet.0[4], destroyer);
     }
 
-    #[test]
-    fn test_random_fleet() {
-        let fleet = Fleet::random();
-        assert_eq!(fleet.0.len(), 5);
-        assert!(
-            &fleet.0[1..]
+    #[rstest]
+    fn test_hit_fleet_at() {
+        let ships = [
+            Cell::bounded(0, 0),
+            Cell::bounded(2, 0),
+            Cell::bounded(4, 0),
+            Cell::bounded(6, 0),
+            Cell::bounded(8, 0),
+        ];
+        let mut ships = ships.iter();
+
+        let mut fleet = Fleet::build(|kind| {
+            kind.ship(ships.next().unwrap().clone(), ShipOrientation::Vertical)
+                .unwrap()
+        });
+
+        let cell = Cell::new(0, 0).unwrap();
+        assert_eq!(fleet.hit_at(&cell), Some(ShipKind::AircraftCarrier));
+
+        let cell = Cell::new(1, 0).unwrap();
+        assert_eq!(fleet.hit_at(&cell), None);
+    }
+
+    #[rstest]
+    pub fn test_fleet_is_sunk() {
+        let mut fleet = Fleet::build(|kind| kind.random());
+        let occupied_cells =
+            fleet.as_ref()[1..]
                 .iter()
-                .all(|ship| !fleet.0[0].is_overlapping(ship))
-        )
+                .fold(fleet.0[0].occupied_cells(), |acc, ship| {
+                    let mut out = acc.clone();
+                    out.append(&mut ship.occupied_cells().clone());
+                    out
+                });
+
+        for cell in occupied_cells {
+            assert!(!fleet.is_sunk());
+            fleet.hit_at(&cell);
+        }
+
+        assert!(fleet.is_sunk());
     }
 }
