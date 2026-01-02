@@ -9,7 +9,7 @@
 //! the remaining fleet.
 //!
 //! Eventually, the game will be extended to support multiplayer and AI opponents, but the default
-//! version will focus on a single-player vs computer opponent.
+//! version will focus on a single-player vs. computer opponent.
 //!
 
 use crate::cell::{Cell, CellState, Grid};
@@ -26,9 +26,9 @@ impl Player {
     /// Creates a new Player instance.
     ///
     /// Initializes a new player with the given name and fleet. The player's grid is initialized to empty.
-    pub fn new(name: String, fleet: Fleet) -> Self {
+    pub fn new(name: &str, fleet: Fleet) -> Self {
         Self {
-            name,
+            name: name.to_string(),
             fleet,
             grid: Grid::default(),
         }
@@ -66,5 +66,113 @@ impl Player {
     /// Checks whether this player has lost the battle
     pub fn has_lost(&self) -> bool {
         self.fleet.is_sunk()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ship::ShipOrientation;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    pub fn player1_fleet() -> Fleet {
+        let mut y_coords = (0u8..9).into_iter().step_by(2);
+        Fleet::build(|kind| {
+            kind.ship(
+                Cell::bounded(0, y_coords.next().unwrap()),
+                ShipOrientation::Horizontal,
+            )
+            .unwrap()
+        })
+    }
+
+    #[fixture]
+    pub fn player2_fleet() -> Fleet {
+        let mut x_coords = (0u8..9).into_iter().step_by(2);
+        Fleet::build(|kind| {
+            kind.ship(
+                Cell::bounded(x_coords.next().unwrap(), 0),
+                ShipOrientation::Vertical,
+            )
+            .unwrap()
+        })
+    }
+
+    #[rstest]
+    pub fn test_match(player1_fleet: Fleet, player2_fleet: Fleet) {
+        let shots = [
+            Cell::bounded(0, 0),
+            Cell::bounded(1, 0),
+            Cell::bounded(2, 0),
+            Cell::bounded(3, 0),
+            Cell::bounded(4, 0),
+            Cell::bounded(0, 2),
+            Cell::bounded(1, 2),
+            Cell::bounded(2, 2),
+            Cell::bounded(3, 2),
+            Cell::bounded(0, 4),
+            Cell::bounded(1, 4),
+            Cell::bounded(2, 4),
+            Cell::bounded(0, 6),
+            Cell::bounded(1, 6),
+            Cell::bounded(2, 6),
+            Cell::bounded(0, 8),
+        ];
+        let mut player1 = Player::new("One", player1_fleet);
+        let mut player2 = Player::new("Two", player2_fleet);
+
+        shots.iter().for_each(|shot| {
+            assert!(!player1.has_lost());
+            assert!(!player2.has_lost());
+
+            player1.attack(&mut player2, shot);
+            assert!(!player2.has_lost());
+
+            player2.attack(&mut player1, shot);
+            assert!(!player1.has_lost());
+        });
+
+        let attack_result = player2.attack(&mut player1, &Cell::bounded(1, 8)).unwrap();
+        assert_eq!(attack_result, ShipKind::Destroyer);
+        assert!(player1.fleet().get(&attack_result).is_sunk());
+        assert!(player1.fleet().is_sunk());
+        assert!(!player2.fleet().is_sunk());
+
+        assert!(!player2.has_lost());
+        assert!(player1.has_lost());
+    }
+
+    #[rstest]
+    pub fn test_name(player1_fleet: Fleet, player2_fleet: Fleet) {
+        let player1 = Player::new("One", player1_fleet);
+        let player2 = Player::new("Two", player2_fleet);
+
+        assert_eq!(player1.name(), "One");
+        assert_eq!(player2.name(), "Two");
+    }
+
+    #[rstest]
+    pub fn test_shots_grid(player1_fleet: Fleet, player2_fleet: Fleet) {
+        let mut player1 = Player::new("One", player1_fleet);
+        let mut player2 = Player::new("Two", player2_fleet);
+
+        assert!(player1.shots_grid().is_empty());
+
+        player1.attack(&mut player2, &Cell::bounded(0, 0));
+        assert_eq!(
+            player1.shots_grid().at(&Cell::bounded(0, 0)),
+            &CellState::Hit
+        );
+
+        player1.attack(&mut player2, &Cell::bounded(1, 0));
+        assert_eq!(
+            player1.shots_grid().at(&Cell::bounded(0, 0)),
+            &CellState::Hit
+        );
+        assert_eq!(
+            player1.shots_grid().at(&Cell::bounded(1, 0)),
+            &CellState::Miss
+        );
     }
 }

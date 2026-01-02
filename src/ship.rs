@@ -334,18 +334,6 @@ impl AsRef<[Ship]> for Fleet {
     }
 }
 
-pub fn validate_ships(ships: &[Ship]) -> Result<(), &'static str> {
-    for (index, ship) in ships.iter().enumerate() {
-        for other_ship in ships.iter().skip(index + 1) {
-            if ship.is_overlapping(other_ship) {
-                return Err("Ships overlap");
-            }
-        }
-    }
-
-    Ok(())
-}
-
 /// Defines the orientation of a ship.
 ///
 /// In this game, a ship can be placed either horizontally (the same Y coordinate shared by all cells)
@@ -717,18 +705,13 @@ mod tests {
 
     #[rstest]
     fn test_hit_fleet_at() {
-        let ships = [
-            Cell::bounded(0, 0),
-            Cell::bounded(2, 0),
-            Cell::bounded(4, 0),
-            Cell::bounded(6, 0),
-            Cell::bounded(8, 0),
-        ];
-        let mut ships = ships.iter();
-
+        let mut x_ships = (0u8..9).into_iter().step_by(2);
         let mut fleet = Fleet::build(|kind| {
-            kind.ship(ships.next().unwrap().clone(), ShipOrientation::Vertical)
-                .unwrap()
+            kind.ship(
+                Cell::bounded(x_ships.next().unwrap(), 0),
+                ShipOrientation::Vertical,
+            )
+            .unwrap()
         });
 
         let cell = Cell::new(0, 0).unwrap();
