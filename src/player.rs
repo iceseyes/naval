@@ -12,10 +12,11 @@
 //! version will focus on a single-player vs. computer opponent.
 //!
 
-use crate::cell::{Cell, CellState, Grid};
+use crate::grid::{Cell, CellState, Grid};
 use crate::ship::{Fleet, ShipKind};
 
 /// Defines the Player struct and associated methods for managing player-related functionalities.
+#[derive(Debug, Clone)]
 pub struct Player {
     name: String,
     fleet: Fleet,

@@ -305,11 +305,7 @@ impl Grid {
     ///
     pub fn from_ships(ships: &[Ship]) -> Self {
         let mut grid = Grid::default();
-        for ship in ships {
-            for cell in ship.occupied_cells() {
-                grid.cells[cell.y as usize][cell.x as usize] = CellState::Occupied;
-            }
-        }
+        ships.iter().for_each(|ship| grid.add_ship(ship));
         grid
     }
 
@@ -330,6 +326,13 @@ impl Grid {
     /// Overwrite the chosen cell with the passed state, it doesn't mind which was its previous state.
     pub fn mark(&mut self, cell: &Cell, state: CellState) {
         self.cells[cell.y as usize][cell.x as usize] = state;
+    }
+
+    /// Add a ship to the grid.
+    pub fn add_ship(&mut self, ship: &Ship) {
+        for cell in ship.occupied_cells().iter() {
+            self.mark(cell, CellState::Occupied);
+        }
     }
 }
 

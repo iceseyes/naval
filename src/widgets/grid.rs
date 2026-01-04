@@ -1,4 +1,4 @@
-use crate::cell::{Cell, CellState, Grid};
+use crate::grid::{Cell, CellState, Grid};
 use crate::ship::Ship;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect, Spacing};
@@ -8,6 +8,7 @@ use ratatui::widgets::{Block, Paragraph};
 
 pub enum Layer {
     Ship(Ship),
+    Shots(Vec<Cell>),
 }
 
 impl Layer {
@@ -18,6 +19,13 @@ impl Layer {
                 CellState::Occupied if ship.occupied_cells().contains(cell) => block.on_red(),
                 _ => block,
             },
+            Self::Shots(cells) => {
+                if cells.contains(cell) {
+                    block.on_light_magenta()
+                } else {
+                    block
+                }
+            }
         }
     }
 }
@@ -44,6 +52,11 @@ impl GridModel {
             cursor: None,
             layers: Vec::new(),
         }
+    }
+
+    /// Set a new cursor position for this grid.
+    pub fn set_cursor(&mut self, p0: &Cell) {
+        self.cursor = Some(p0.clone());
     }
 
     /// Returns the cursor cell of this grid.
@@ -85,6 +98,11 @@ impl GridModel {
     /// Removes the topmost layer from the grid.
     pub fn pop_layer(&mut self) -> Option<Layer> {
         self.layers.pop()
+    }
+
+    /// Add a ship to the grid
+    pub fn add_ship(&mut self, ship: &Ship) {
+        self.grid.add_ship(ship);
     }
 
     /// Applies the given function to the cursor cell, if any.

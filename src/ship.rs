@@ -1,4 +1,4 @@
-//! In the naval battle the main object is the Ship. Players deploy their fleet up on a [crate::cell::Grid].
+//! In the naval battle the main object is the Ship. Players deploy their fleet up on a [crate::grid::Grid].
 //! Each fleet consists of 5 ships, each of a different kind.
 //!
 //! The [ShipKind] defines the different ship types, and can be used to make a new [Ship]
@@ -9,7 +9,7 @@
 //!
 //! You have to use a given [ShipKind] in order to create a new [Ship].
 //!
-use crate::cell::Cell;
+use crate::grid::Cell;
 use strum::Display;
 use strum_macros::EnumIter;
 
@@ -120,7 +120,7 @@ impl Ship {
 
     /// Returns all cells occupied by this ship.
     ///
-    /// In a [crate::cell::Grid], all these cells will be set to [crate::cell::CellState::Occupied].
+    /// In a [crate::grid::Grid], all these cells will be set to [crate::grid::CellState::Occupied].
     pub fn occupied_cells(&self) -> Vec<Cell> {
         let mut cells = Vec::with_capacity(self.ship_size as usize);
         match self.orientation {
@@ -229,6 +229,7 @@ impl Ship {
 /// println!("{:?}", grid);
 /// ```
 ///
+#[derive(Debug, Clone)]
 pub struct Fleet([Ship; 5]);
 
 impl Fleet {
@@ -272,6 +273,34 @@ impl Fleet {
         let tmp: [Ship; 5] = ships.try_into().unwrap();
 
         Self(tmp)
+    }
+
+    /// Builds a fleet using a given slice.
+    ///
+    /// The ships in the slice must match the composition of the fleet in the same order.
+    /// An error is returned if the slice does not contain exactly 5 ships or if any ship does not match the expected size.
+    pub fn new(ships: &[Ship]) -> Result<Self, String> {
+        if ships.len() != Self::COMPOSITION.len() {
+            return Err(format!(
+                "A fleet must contain exactly {} ships, but {} were provided",
+                Self::COMPOSITION.len(),
+                ships.len()
+            ));
+        }
+
+        for (i, kind) in Self::COMPOSITION.iter().enumerate() {
+            let ship = &ships[i];
+            let expected_size = kind.size();
+            if ship.ship_size != expected_size {
+                return Err(format!(
+                    "Ship of kind {} must have size {}, but size {} was provided",
+                    kind, expected_size, ship.ship_size
+                ));
+            }
+        }
+
+        let ships_array: [Ship; 5] = Vec::from(ships).try_into().unwrap();
+        Ok(Self(ships_array))
     }
 
     /// Evaluates if the attacked cell hits a ship
@@ -367,7 +396,7 @@ fn get_ship_state(size: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use crate::cell::Cell;
+    use crate::grid::Cell;
     use crate::ship::{Fleet, ShipOrientation};
     use crate::ship::{Ship, ShipKind};
     use rstest::rstest;
