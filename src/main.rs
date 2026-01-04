@@ -1,20 +1,20 @@
 mod cell;
 mod player;
 mod ship;
+mod widgets;
 
-use crate::cell::{Cell, CellState, Grid};
+use crate::cell::Grid;
 use crate::player::Player;
-use crate::ship::Fleet;
+use crate::ship::{Fleet, ShipKind, ShipOrientation};
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::layout::Spacing;
-use ratatui::prelude::{Alignment, Buffer, Constraint, Direction, Layout, Line, Rect, Widget};
+use ratatui::prelude::{Buffer, Constraint, Direction, Layout, Line, Rect, Widget};
 use ratatui::style::Stylize;
 use ratatui::symbols::border;
-use ratatui::symbols::merge::MergeStrategy;
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::Block;
 use ratatui::{DefaultTerminal, Frame};
 use std::io;
+use widgets::grid_widget::GridModel;
 
 fn main() -> io::Result<()> {
     ratatui::run(|terminal| NavalBattleTui::new().run(terminal))
@@ -22,18 +22,17 @@ fn main() -> io::Result<()> {
 
 struct NavalBattleTui {
     players: Vec<Player>,
-    fleet_grid: GridWidget,
+    fleet_grid: GridModel,
     exit: bool,
 }
 
 impl NavalBattleTui {
     pub fn new() -> Self {
+        let grid = Grid::from_ships(Fleet::build(|kind| kind.random()).as_ref());
+
         Self {
             players: Vec::new(),
-            fleet_grid: GridWidget {
-                grid: Grid::from_ships(Fleet::build(|kind| kind.random()).as_ref()),
-                cursor: None,
-            },
+            fleet_grid: GridModel::new(grid),
             exit: false,
         }
     }
@@ -69,6 +68,19 @@ impl NavalBattleTui {
             KeyCode::Right => self.fleet_grid.move_cursor(|c| c.move_right()),
             KeyCode::Up => self.fleet_grid.move_cursor(|c| c.move_up()),
             KeyCode::Down => self.fleet_grid.move_cursor(|c| c.move_down()),
+            KeyCode::Char('s') => {
+                self.fleet_grid.pop_layer();
+                self.fleet_grid.enable_cursor();
+                self.fleet_grid
+                    .push_layer(widgets::grid_widget::Layer::Ship(
+                        ShipKind::AircraftCarrier
+                            .ship(
+                                *self.fleet_grid.cursor().unwrap(),
+                                ShipOrientation::Horizontal,
+                            )
+                            .unwrap(),
+                    ))
+            }
             _ => {}
         }
     }
@@ -96,7 +108,9 @@ impl Widget for &NavalBattleTui {
         let fleet_block = Block::bordered()
             .title(Line::from("Fleet".bold()))
             .border_set(border::THICK);
-        self.fleet_grid.render(fleet_block.inner(layout[0]), buf);
+        self.fleet_grid
+            .widget()
+            .render(fleet_block.inner(layout[0]), buf);
         fleet_block.render(layout[0], buf);
 
         let notes_block = Block::bordered()
@@ -104,88 +118,5 @@ impl Widget for &NavalBattleTui {
             .border_set(border::THICK);
 
         notes_block.render(layout[1], buf);
-    }
-}
-
-struct GridWidget {
-    grid: Grid,
-    cursor: Option<Cell>,
-}
-
-impl GridWidget {
-    /// Applies the given function to the cursor cell, if any.
-    /// If the cursor is not set, it will be set to the first cell of the grid.
-    fn move_cursor<MoveFn>(&mut self, move_func: MoveFn)
-    where
-        MoveFn: FnOnce(&mut Cell),
-    {
-        if let Some(cursor) = &mut self.cursor {
-            move_func(cursor);
-        } else {
-            self.cursor = Some(Cell::bounded(0, 0));
-        }
-    }
-}
-
-impl Widget for &GridWidget {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let horizontal = Layout::horizontal([Constraint::Fill(1); 11]).spacing(Spacing::Overlap(1));
-        let vertical = Layout::vertical([Constraint::Fill(1); 11]).spacing(Spacing::Overlap(1));
-
-        let rows = vertical.split(area);
-        rows.iter().enumerate().for_each(|(row, area)| {
-            let cells = horizontal.split(*area).to_vec();
-            for (col, cell_area) in cells.iter().enumerate() {
-                // Choose the content and the color of the cell
-                let mut cell_block = Block::bordered().merge_borders(MergeStrategy::Exact);
-                let content = match (row, col) {
-                    (0, col) if col > 0 => {
-                        cell_block = cell_block.on_dark_gray().white();
-                        format!("{}", char::from_u32('A' as u32 + col as u32 - 1).unwrap())
-                    }
-
-                    (row, 0) if row > 0 => {
-                        cell_block = cell_block.on_dark_gray().white();
-                        format!("{:02}", row)
-                    }
-
-                    (row, col) if row > 0 || col > 0 => {
-                        let current_cell = Cell::new(col as u8 - 1, row as u8 - 1).unwrap();
-                        cell_block = match self.grid.at(&current_cell) {
-                            CellState::Empty => cell_block.on_light_blue(),
-                            CellState::Occupied => cell_block.on_light_green(),
-                            CellState::Miss => cell_block.on_light_cyan(),
-                            CellState::Hit => cell_block.on_light_red(),
-                        };
-
-                        if let Some(cursor) = &self.cursor
-                            && current_cell == *cursor
-                        {
-                            "X".to_string()
-                        } else {
-                            "".to_string()
-                        }
-                    }
-
-                    _ => "".to_string(),
-                };
-
-                // Center vertically by creating a layout inside the cell that picks the middle line
-                let inner_area = cell_block.inner(*cell_area);
-                let vertical_center_layout = Layout::vertical([
-                    Constraint::Fill(1),
-                    Constraint::Length(1),
-                    Constraint::Fill(1),
-                ])
-                .split(inner_area);
-                cell_block.render(*cell_area, buf);
-
-                // Render the content of the cell
-                Paragraph::new(content)
-                    .bold()
-                    .alignment(Alignment::Center)
-                    .render(vertical_center_layout[1], buf);
-            }
-        });
     }
 }
