@@ -38,8 +38,11 @@ impl NavalBattleState {
     }
 
     /// Creates a new battle state ready to start the battle between the computer and the user.
-    pub fn battle() -> Self {
-        Self::Battle(BattleStateModel::default())
+    pub fn battle(computer: &Player, human: &Player) -> Self {
+        let mut model = BattleStateModel::default();
+        model.update_grid(computer, human);
+
+        Self::Battle(model)
     }
 
     /// Dispatches events to be handled according to the current state.

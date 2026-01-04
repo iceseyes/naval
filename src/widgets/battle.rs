@@ -18,6 +18,18 @@ pub struct BattleStateModel {
     computer_shots: Vec<Cell>,
 }
 
+impl BattleStateModel {
+    pub fn update_grid(&mut self, _computer: &Player, human: &Player) {
+        let cursor = *self.opponent_grid.cursor().unwrap();
+        self.opponent_grid = GridModel::new(human.shots_grid().clone());
+        self.opponent_grid.set_cursor(&cursor);
+
+        self.tactical_grid = GridModel::new(Grid::from_ships(human.fleet().as_ref()));
+        self.tactical_grid
+            .push_layer(Layer::Shots(self.computer_shots.clone()));
+    }
+}
+
 impl Default for BattleStateModel {
     fn default() -> Self {
         let tactical_grid = GridModel::new(Grid::default());
@@ -71,15 +83,7 @@ impl StateModel for BattleStateModel {
             self.player1_has_shot = false;
         }
 
-        let cursor = *self.opponent_grid.cursor().unwrap();
-        self.opponent_grid = GridModel::new(human.shots_grid().clone());
-        self.opponent_grid.set_cursor(&cursor);
-
-        self.tactical_grid = GridModel::new(Grid::from_ships(human.fleet().as_ref()));
-        self.tactical_grid
-            .push_layer(Layer::Shots(self.computer_shots.clone()));
-
-        self.player1_start = !self.player1_start;
+        self.update_grid(&computer, &human);
 
         (computer, Some(human))
     }

@@ -77,7 +77,7 @@ impl NavalBattleTui {
         if let NavalBattleState::Setup { .. } = self.state
             && self.human.is_some()
         {
-            self.state = NavalBattleState::battle();
+            self.state = NavalBattleState::battle(&self.computer, self.human.as_ref().unwrap());
         } else if let NavalBattleState::Battle { .. } = self.state
             && (self.human.as_ref().map_or(true, |h| h.has_lost()) || self.computer.has_lost())
         {
