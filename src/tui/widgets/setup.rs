@@ -157,7 +157,7 @@ impl<'state> Widget for SetupWidget<'state> {
             .border_set(border::THICK);
 
         let help_text = Text::from(vec![
-            Line::from("Welcome to Naval - The Battlefield Game")
+            Line::from("Welcome to Naval - The Battleship Game")
                 .red()
                 .bold()
                 .centered(),

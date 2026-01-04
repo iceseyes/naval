@@ -1,10 +1,10 @@
-//! This module represents a battlefield space for naval battle game.
+//! This module represents a battleship space for naval battle game.
 //!
 //! The naval battle game is played on a 10x10 grid where players place ships and take notes of hits and misses.
 //! Each cell in the grid can be empty, occupied by a ship, or report a shoot result: miss, hit, or sunk.
 //! When a shoot is made, you can hit a ship or miss it. Whenever a ship is completely hit, it is considered sunk.
 //!
-//! The battlefield grid is divided into cells, each represented by the `Cell` struct with x and y coordinates.
+//! The battleship grid is divided into cells, each represented by the `Cell` struct with x and y coordinates.
 //! The `Grid` struct represents the entire 10x10 grid and maintains the state of each cell using the `CellState` enum.
 //! The `CellState` enum has four variants: `Empty`, `Occupied`, `Hit`, and `Sunk`.
 //!
@@ -14,7 +14,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use thiserror::Error;
 
-/// Represents the state of a cell in the battlefield grid.
+/// Represents the state of a cell in the battleship grid.
 ///
 /// A cell can be empty, occupied by a ship part or report a shoot result: miss or hit.
 /// A hit occurs when you shoot toward a cell with was occupied, a miss if it wasn't.
@@ -57,7 +57,7 @@ pub enum Error {
     InvalidFormat(String),
 }
 
-/// Represents a cell in the battlefield grid with x and y coordinates.
+/// Represents a cell in the battleship grid with x and y coordinates.
 ///
 /// The x coordinate corresponds to the column (0-9) and the y coordinate corresponds to the row (0-9).
 /// From the player's perspective, (0,0) is the top-left corner of the grid and (9,9) is the bottom-right corner.
@@ -278,7 +278,7 @@ impl Display for Cell {
     }
 }
 
-/// Represents the battlefield grid for the naval battle game.
+/// Represents the battleship grid for the naval battle game.
 ///
 /// The grid is a 10x10 matrix of cells, where each cell can be in one of the states defined by the `CellState` enum.
 /// The default state of the grid is empty, with all cells set to [`CellState::Empty`].
