@@ -1,7 +1,7 @@
-use crate::grid::{Cell, Grid};
-use crate::player::Player;
-use crate::state::StateModel;
-use crate::widgets::grid::{GridModel, Layer};
+use crate::engine::grid::{Cell, Grid};
+use crate::engine::player::Player;
+use crate::tui::state::StateModel;
+use crate::tui::widgets::grid::{GridModel, Layer};
 use crossterm::event::{KeyCode, KeyEvent};
 use rand::random;
 use ratatui::buffer::Buffer;
@@ -27,6 +27,34 @@ impl BattleStateModel {
         self.tactical_grid = GridModel::new(Grid::from_ships(human.fleet().as_ref()));
         self.tactical_grid
             .push_layer(Layer::Shots(self.computer_shots.clone()));
+    }
+
+    pub fn play_turn(&mut self, computer: &mut Player, human: &mut Player) {
+        if self.player1_has_shot {
+            if self.player1_start {
+                // if player1 is the first player, evaluate its shot first
+                human.attack(computer, self.opponent_grid.cursor().unwrap());
+
+                if computer.has_lost() {
+                    return;
+                }
+            }
+
+            let shot = Cell::random();
+            computer.attack(human, &shot);
+            self.computer_shots.push(shot);
+
+            if human.has_lost() {
+                return;
+            }
+
+            if !self.player1_start {
+                // if player1 is the second player, evaluate its shot after
+                human.attack(computer, self.opponent_grid.cursor().unwrap());
+            }
+
+            self.player1_has_shot = false;
+        }
     }
 }
 
@@ -65,24 +93,8 @@ impl StateModel for BattleStateModel {
     fn update(&mut self, computer: Player, human: Option<Player>) -> (Player, Option<Player>) {
         let mut computer = computer;
         let mut human = human.unwrap();
-        if self.player1_has_shot {
-            if self.player1_start {
-                // if player1 is the first player, evaluate its shot first
-                human.attack(&mut computer, self.opponent_grid.cursor().unwrap());
-            }
 
-            let shot = Cell::random();
-            computer.attack(&mut human, &shot);
-            self.computer_shots.push(shot);
-
-            if !self.player1_start {
-                // if player1 is the second player, evaluate its shot after
-                human.attack(&mut computer, self.opponent_grid.cursor().unwrap());
-            }
-
-            self.player1_has_shot = false;
-        }
-
+        self.play_turn(&mut computer, &mut human);
         self.update_grid(&computer, &human);
 
         (computer, Some(human))

@@ -8,7 +8,7 @@
 //! The `Grid` struct represents the entire 10x10 grid and maintains the state of each cell using the `CellState` enum.
 //! The `CellState` enum has four variants: `Empty`, `Occupied`, `Hit`, and `Sunk`.
 //!
-use crate::ship::Ship;
+use crate::engine::fleet::Ship;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -374,8 +374,8 @@ impl Display for Grid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ship::ShipKind;
-    use crate::ship::ShipOrientation;
+    use crate::engine::fleet::ShipKind;
+    use crate::engine::fleet::ShipOrientation;
     use rstest::rstest;
 
     #[rstest]

@@ -1,11 +1,20 @@
-use crate::player::Player;
-use crate::ship::Fleet;
-use crate::state::NavalBattleState;
-use crate::widgets::workbench::Workbench;
-use crossterm::event;
-use crossterm::event::{Event, KeyCode, KeyEvent};
+//! This module contains the Naval Battle TUI application.
+//!
+//! The application is based on the [ratatui](https://github.com/ratatouille-aqua/ratatui) crate.
+//! It provides a terminal user interface for playing a naval battle game against a computer opponent.
+//! The game consists of two main phases: setup and battle. During the setup phase, the human player deploys their fleet on a grid.
+//! During the battle phase, the human player and the computer take turns attacking each other's fleets until one player wins.
+//!
+use crate::{
+    engine::{fleet::Fleet, player::Player},
+    tui::{state::NavalBattleState, widgets::workbench::Workbench},
+};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{DefaultTerminal, Frame};
 use std::io;
+
+pub mod state;
+mod widgets;
 
 /// The Naval Battle TUI application
 ///

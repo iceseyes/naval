@@ -1,4 +1,4 @@
-//! In the naval battle the main object is the Ship. Players deploy their fleet up on a [crate::grid::Grid].
+//! In the naval battle the main object is the Ship. Players deploy their fleet up on a [crate::engine::grid::Grid].
 //! Each fleet consists of 5 ships, each of a different kind.
 //!
 //! The [ShipKind] defines the different ship types, and can be used to make a new [Ship]
@@ -9,7 +9,7 @@
 //!
 //! You have to use a given [ShipKind] in order to create a new [Ship].
 //!
-use crate::grid::Cell;
+use crate::engine::grid::Cell;
 use strum::Display;
 use strum_macros::EnumIter;
 
@@ -120,7 +120,7 @@ impl Ship {
 
     /// Returns all cells occupied by this ship.
     ///
-    /// In a [crate::grid::Grid], all these cells will be set to [crate::grid::CellState::Occupied].
+    /// In a [crate::engine::grid::Grid], all these cells will be set to [crate::engine::grid::CellState::Occupied].
     pub fn occupied_cells(&self) -> Vec<Cell> {
         let mut cells = Vec::with_capacity(self.ship_size as usize);
         match self.orientation {
@@ -396,9 +396,9 @@ fn get_ship_state(size: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use crate::grid::Cell;
-    use crate::ship::{Fleet, ShipOrientation};
-    use crate::ship::{Ship, ShipKind};
+    use crate::engine::fleet::{Fleet, ShipOrientation};
+    use crate::engine::fleet::{Ship, ShipKind};
+    use crate::engine::grid::Cell;
     use rstest::rstest;
 
     #[rstest]

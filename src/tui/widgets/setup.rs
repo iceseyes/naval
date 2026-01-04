@@ -1,8 +1,8 @@
-use crate::grid::Grid;
-use crate::player::Player;
-use crate::ship::{Fleet, Ship, ShipKind, ShipOrientation};
-use crate::state::StateModel;
-use crate::widgets::grid::{GridModel, Layer};
+use crate::engine::fleet::{Fleet, Ship, ShipKind, ShipOrientation};
+use crate::engine::grid::Grid;
+use crate::engine::player::Player;
+use crate::tui::state::StateModel;
+use crate::tui::widgets::grid::{GridModel, Layer};
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     prelude::{Buffer, Constraint, Direction, Layout, Line, Rect, Stylize, Widget},

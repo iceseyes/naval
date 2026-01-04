@@ -1,9 +1,5 @@
-mod grid;
-mod player;
-mod ship;
-mod state;
+mod engine;
 mod tui;
-mod widgets;
 
 use std::io;
 use tui::NavalBattleTui;

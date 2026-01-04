@@ -1,6 +1,24 @@
-use crate::player::Player;
-use crate::widgets::battle::BattleStateModel;
-use crate::widgets::setup::SetupStateModel;
+//! This module contains the application states.
+//!
+//! The application state is a simple enum that represents the current application phase.
+//! It is responsible for handling user input and building the corresponding UI widget for
+//! the specific state.
+//!
+//! Every state has its own model, which is responsible for handling the state-specific logic.
+//! The model is updated according to the user input, and it can be used to get the UI widget to display.
+//!
+//! The model is also responsible for updating the player data according to the current state.
+//! For instance, the setup state model creates the new player fleet and so the player object itself.
+//! The battle state model updates the player shots according to the user input and the computer ones.
+//!
+//! To make the state model transparent to the application, the state is enum and every variant
+//! has its own model. Application sends requests to the actual state object, and this one dispatches
+//! the requests to the real model.
+//!
+use crate::{
+    engine::player::Player,
+    tui::widgets::{battle::BattleStateModel, setup::SetupStateModel},
+};
 use crossterm::event::{Event, KeyEvent};
 use ratatui::prelude::{Buffer, Rect, Widget};
 use std::default::Default;
@@ -55,6 +73,7 @@ impl NavalBattleState {
         }
     }
 
+    /// Updates the player objects according to the current state.
     pub fn update(&mut self, computer: Player, human: Option<Player>) -> (Player, Option<Player>) {
         match self {
             NavalBattleState::Setup(state) => state.update(computer, human),

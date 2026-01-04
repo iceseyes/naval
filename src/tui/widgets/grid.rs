@@ -1,5 +1,5 @@
-use crate::grid::{Cell, CellState, Grid};
-use crate::ship::Ship;
+use crate::engine::fleet::Ship;
+use crate::engine::grid::{Cell, CellState, Grid};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Layout, Rect, Spacing};
 use ratatui::prelude::{Stylize, Widget};
@@ -19,13 +19,11 @@ impl Layer {
                 CellState::Occupied if ship.occupied_cells().contains(cell) => block.on_red(),
                 _ => block,
             },
-            Self::Shots(cells) => {
-                if cells.contains(cell) {
-                    block.on_light_magenta()
-                } else {
-                    block
-                }
-            }
+            Self::Shots(cells) => match state {
+                CellState::Empty if cells.contains(cell) => block.on_magenta(),
+                CellState::Occupied if cells.contains(cell) => block.on_red(),
+                _ => block,
+            },
         }
     }
 }

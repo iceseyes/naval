@@ -1,4 +1,4 @@
-use crate::state::NavalBattleState;
+use crate::tui::state::NavalBattleState;
 use ratatui::{
     prelude::{Buffer, Line, Rect, Stylize, Widget},
     symbols::border,

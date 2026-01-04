@@ -12,8 +12,8 @@
 //! version will focus on a single-player vs. computer opponent.
 //!
 
-use crate::grid::{Cell, CellState, Grid};
-use crate::ship::{Fleet, ShipKind};
+use crate::engine::fleet::{Fleet, ShipKind};
+use crate::engine::grid::{Cell, CellState, Grid};
 
 /// Defines the Player struct and associated methods for managing player-related functionalities.
 #[derive(Debug, Clone)]
@@ -73,7 +73,7 @@ impl Player {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ship::ShipOrientation;
+    use crate::engine::fleet::ShipOrientation;
     use rstest::{fixture, rstest};
 
     #[fixture]
