@@ -1,13 +1,19 @@
-use crate::engine::fleet::{Fleet, Ship, ShipKind, ShipOrientation};
-use crate::engine::grid::Grid;
-use crate::engine::player::Player;
-use crate::tui::state::StateModel;
-use crate::tui::widgets::grid::{GridModel, Layer};
+use crate::{
+    engine::{
+        fleet::{Fleet, Ship, ShipKind, ShipOrientation},
+        grid::Grid,
+        player::Player,
+    },
+    tui::{
+        state::StateModel,
+        widgets::grid::{GridModel, Layer},
+    },
+};
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    prelude::{Buffer, Constraint, Direction, Layout, Line, Rect, Stylize, Widget},
+    prelude::{Buffer, Constraint, Direction, Layout, Line, Rect, Span, Stylize, Text, Widget},
     symbols::border,
-    widgets::Block,
+    widgets::{Block, Paragraph},
 };
 
 /// Model for the setup state.
@@ -147,9 +153,37 @@ impl<'state> Widget for SetupWidget<'state> {
         deploy_block.render(layout[0], buf);
 
         let notes_block = Block::bordered()
-            .title(Line::from("Notes".bold()))
+            .title(Line::from("Help".bold()))
             .border_set(border::THICK);
 
-        notes_block.render(layout[1], buf);
+        let help_text = Text::from(vec![
+            Line::from("Welcome to Naval - The Battlefield Game")
+                .red()
+                .bold()
+                .centered(),
+            Line::from(""),
+            Line::from("Use:").bold().centered(),
+            Line::from("- the arrow keys: to move the ship").centered(),
+            Line::from("- h: to put the ship horizontally").centered(),
+            Line::from("- v: to put the ship vertically").centered(),
+            Line::from("- Enter: to place it.").centered(),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("Please, place your ").gray(),
+                Span::raw(format!("{}", self.0.current_kind.as_ref().unwrap()))
+                    .yellow()
+                    .bold(),
+                Span::raw(" [size: ").gray(),
+                Span::raw(format!("{}", self.0.current_kind.as_ref().unwrap().size()))
+                    .yellow()
+                    .italic(),
+                Span::raw("]").gray(),
+            ])
+            .centered(),
+        ]);
+
+        let text = Paragraph::new(help_text).block(notes_block);
+
+        text.render(layout[1], buf);
     }
 }

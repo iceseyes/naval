@@ -34,6 +34,7 @@ pub struct NavalBattleTui {
     human: Option<Player>,
     state: NavalBattleState,
     exit: bool,
+    enter_pressed: bool,
 }
 
 impl NavalBattleTui {
@@ -48,6 +49,7 @@ impl NavalBattleTui {
             human: None,
             state: NavalBattleState::default(),
             exit: false,
+            enter_pressed: false,
         }
     }
 
@@ -88,14 +90,24 @@ impl NavalBattleTui {
         {
             self.state = NavalBattleState::battle(&self.computer, self.human.as_ref().unwrap());
         } else if let NavalBattleState::Battle { .. } = self.state
-            && (self.human.as_ref().map_or(true, |h| h.has_lost()) || self.computer.has_lost())
+            && self.match_is_over()
+            && self.enter_pressed
         {
             self.computer = Player::new("Computer", Fleet::build(|kind| kind.random()));
             self.human = None;
             self.state = NavalBattleState::setup();
+            self.enter_pressed = false;
         }
 
         Ok(())
+    }
+
+    fn match_is_over(&self) -> bool {
+        if let NavalBattleState::Battle { .. } = self.state {
+            self.computer.has_lost() || self.human.as_ref().map_or(false, |h| h.has_lost())
+        } else {
+            false
+        }
     }
 
     // Handles application-level events, such as quitting the application. If the event is handled, returns true.
@@ -108,7 +120,14 @@ impl NavalBattleTui {
                 self.exit();
                 true
             }
-            _ => false,
+            Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                ..
+            }) if self.match_is_over() => {
+                self.enter_pressed = true;
+                true
+            }
+            _ => self.match_is_over(),
         }
     }
 

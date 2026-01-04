@@ -6,13 +6,15 @@ use crossterm::event::{KeyCode, KeyEvent};
 use rand::random;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::prelude::{Line, Stylize, Widget};
+use ratatui::prelude::{Line, Style, Stylize, Widget};
 use ratatui::symbols::border;
-use ratatui::widgets::Block;
+use ratatui::text::Span;
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 pub struct BattleStateModel {
     player1_start: bool,
     player1_has_shot: bool,
+    player1_won: Option<bool>,
     tactical_grid: GridModel,
     opponent_grid: GridModel,
     computer_shots: Vec<Cell>,
@@ -36,6 +38,7 @@ impl BattleStateModel {
                 human.attack(computer, self.opponent_grid.cursor().unwrap());
 
                 if computer.has_lost() {
+                    self.player1_won = Some(true);
                     return;
                 }
             }
@@ -45,12 +48,18 @@ impl BattleStateModel {
             self.computer_shots.push(shot);
 
             if human.has_lost() {
+                self.player1_won = Some(false);
                 return;
             }
 
             if !self.player1_start {
                 // if player1 is the second player, evaluate its shot after
                 human.attack(computer, self.opponent_grid.cursor().unwrap());
+
+                if computer.has_lost() {
+                    self.player1_won = Some(true);
+                    return;
+                }
             }
 
             self.player1_has_shot = false;
@@ -68,6 +77,7 @@ impl Default for BattleStateModel {
         Self {
             player1_start: random(),
             player1_has_shot: false,
+            player1_won: None,
             tactical_grid,
             opponent_grid,
             computer_shots: Vec::new(),
@@ -135,5 +145,33 @@ impl<'state> Widget for BattleWidget<'state> {
             .render(tactical_block.inner(layout[1]), buf);
 
         tactical_block.render(layout[1], buf);
+
+        if let Some(player1_won) = self.0.player1_won {
+            let popup_area = Rect {
+                x: area.width / 4,
+                y: area.height / 3,
+                width: area.width / 2,
+                height: area.height / 3,
+            };
+            Clear.render(popup_area, buf);
+            let bad_popup = Paragraph::new(if player1_won {
+                Span::raw("You WIN!!!").bold()
+            } else {
+                Span::raw("You lose! :(").bold()
+            })
+            .wrap(Wrap { trim: true })
+            .style(Style::new().black())
+            .centered()
+            .block(
+                Block::new()
+                    .title("Match Over!")
+                    .title_style(Style::new().black().bold())
+                    .borders(Borders::ALL)
+                    .border_style(Style::new().red())
+                    .on_white(),
+            );
+
+            bad_popup.render(popup_area, buf);
+        }
     }
 }
