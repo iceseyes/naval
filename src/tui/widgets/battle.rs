@@ -81,8 +81,8 @@ impl StateModel for BattleStateModel {
                         self.computer_shots.push(*computer_shot);
                     }
 
-                    if let Some(winner) = winner {
-                        self.player1_won = Some(winner != "Computer");
+                    if let Some(human) = winner {
+                        self.player1_won = Some(human);
                     }
                 }
                 Err(e) => {

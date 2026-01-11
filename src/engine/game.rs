@@ -94,9 +94,11 @@ impl Game {
     /// Play a turn with the given move for the human player.
     ///
     /// The computer player uses its internal policy to evaluate the next move.
-    /// Return whether the game is over after this turn: in this case the winner player name is returned.
+    /// Return whether the game is over after this turn: in this case will be returned `true` when
+    /// human wins, otherwise `false`.
+    ///
     /// If the game is over or not ready, an error is returned.
-    pub fn play_turn(&mut self, human_move: &Cell) -> Result<Option<String>, String> {
+    pub fn play_turn(&mut self, human_move: &Cell) -> Result<Option<bool>, String> {
         if !self.is_ready() {
             return Err("Game is not ready or already over".to_string());
         }
@@ -108,7 +110,7 @@ impl Game {
 
         let (winner, computer_move) = do_move(first, second, human_move)?;
         if let Some(winner) = winner {
-            return Ok(Some(winner));
+            return Ok(Some(winner != Self::COMPUTER_NAME));
         }
 
         if let Some(computer_move) = computer_move {
@@ -117,7 +119,7 @@ impl Game {
 
         let (winner, computer_move) = do_move(second, first, human_move)?;
         if let Some(winner) = winner {
-            return Ok(Some(winner));
+            return Ok(Some(winner != Self::COMPUTER_NAME));
         }
 
         if let Some(computer_move) = computer_move {
@@ -220,7 +222,7 @@ mod tests {
 
         let winner = game.play_turn(&winning_cell).unwrap();
 
-        assert_eq!(winner, Some("Human".to_string()));
+        assert_eq!(winner, Some(true));
         assert!(game.is_over());
     }
 
