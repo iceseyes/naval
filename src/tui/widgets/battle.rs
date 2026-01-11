@@ -1,18 +1,26 @@
-use crate::engine::grid::{Cell, Grid};
-use crate::engine::player::Player;
-use crate::tui::state::StateModel;
-use crate::tui::widgets::grid::{GridModel, Layer};
+use crate::engine::game::Game;
+use crate::{
+    engine::{
+        grid::{Cell, Grid},
+        player::Player,
+    },
+    tui::{
+        state::StateModel,
+        widgets::grid::{GridModel, Layer},
+    },
+};
 use crossterm::event::{KeyCode, KeyEvent};
-use rand::random;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::prelude::{Line, Style, Stylize, Widget};
-use ratatui::symbols::border;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Constraint, Direction, Layout, Rect},
+    prelude::{Line, Style, Stylize, Widget},
+    symbols::border,
+    text::Span,
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+};
 
+/// Tracks how the battle goes
 pub struct BattleStateModel {
-    player1_start: bool,
     player1_has_shot: bool,
     player1_won: Option<bool>,
     tactical_grid: GridModel,
@@ -21,6 +29,7 @@ pub struct BattleStateModel {
 }
 
 impl BattleStateModel {
+    /// Updates the grids to reflect the current state of the game
     pub fn update_grid(&mut self, _computer: &Player, human: &Player) {
         let cursor = *self.opponent_grid.cursor().unwrap();
         self.opponent_grid = GridModel::new(human.shots_grid().clone());
@@ -29,41 +38,6 @@ impl BattleStateModel {
         self.tactical_grid = GridModel::new(Grid::from_ships(human.fleet().as_ref()));
         self.tactical_grid
             .push_layer(Layer::Shots(self.computer_shots.clone()));
-    }
-
-    pub fn play_turn(&mut self, computer: &mut Player, human: &mut Player) {
-        if self.player1_has_shot {
-            if self.player1_start {
-                // if player1 is the first player, evaluate its shot first
-                human.attack(computer, self.opponent_grid.cursor().unwrap());
-
-                if computer.has_lost() {
-                    self.player1_won = Some(true);
-                    return;
-                }
-            }
-
-            let shot = Cell::random();
-            computer.attack(human, &shot);
-            self.computer_shots.push(shot);
-
-            if human.has_lost() {
-                self.player1_won = Some(false);
-                return;
-            }
-
-            if !self.player1_start {
-                // if player1 is the second player, evaluate its shot after
-                human.attack(computer, self.opponent_grid.cursor().unwrap());
-
-                if computer.has_lost() {
-                    self.player1_won = Some(true);
-                    return;
-                }
-            }
-
-            self.player1_has_shot = false;
-        }
     }
 }
 
@@ -75,7 +49,6 @@ impl Default for BattleStateModel {
         opponent_grid.enable_cursor();
 
         Self {
-            player1_start: random(),
             player1_has_shot: false,
             player1_won: None,
             tactical_grid,
@@ -100,14 +73,27 @@ impl StateModel for BattleStateModel {
         }
     }
 
-    fn update(&mut self, computer: Player, human: Option<Player>) -> (Player, Option<Player>) {
-        let mut computer = computer;
-        let mut human = human.unwrap();
+    fn update(&mut self, game: &mut Game) {
+        if self.player1_has_shot {
+            match game.play_turn(self.opponent_grid.cursor().unwrap()) {
+                Ok(winner) => {
+                    if let Some(computer_shot) = game.last_computer_move() {
+                        self.computer_shots.push(*computer_shot);
+                    }
 
-        self.play_turn(&mut computer, &mut human);
-        self.update_grid(&computer, &human);
+                    if let Some(winner) = winner {
+                        self.player1_won = Some(winner != "Computer");
+                    }
+                }
+                Err(e) => {
+                    panic!("{e}");
+                }
+            }
+        }
 
-        (computer, Some(human))
+        self.player1_has_shot = false;
+
+        self.update_grid(game.computer().unwrap(), game.human().unwrap());
     }
 
     fn widget(&self) -> impl Widget {

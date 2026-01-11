@@ -395,11 +395,39 @@ fn get_ship_state(size: u8) -> u8 {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::engine::fleet::{Fleet, ShipOrientation};
-    use crate::engine::fleet::{Ship, ShipKind};
-    use crate::engine::grid::Cell;
-    use rstest::rstest;
+pub(crate) mod tests {
+    use crate::engine::{
+        fleet::{Fleet, Ship, ShipKind, ShipOrientation},
+        grid::Cell,
+    };
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    pub fn fixed_fleet(#[default(0)] col: u8) -> Fleet {
+        let aircraft_carrier = ShipKind::AircraftCarrier
+            .ship(Cell::bounded(col, 0), ShipOrientation::Horizontal)
+            .unwrap();
+        let battleship = ShipKind::Battleship
+            .ship(Cell::bounded(col, 2), ShipOrientation::Horizontal)
+            .unwrap();
+        let cruiser = ShipKind::Cruiser
+            .ship(Cell::bounded(col, 4), ShipOrientation::Horizontal)
+            .unwrap();
+        let submarine = ShipKind::Submarine
+            .ship(Cell::bounded(col, 6), ShipOrientation::Horizontal)
+            .unwrap();
+        let destroyer = ShipKind::Destroyer
+            .ship(Cell::bounded(col, 8), ShipOrientation::Horizontal)
+            .unwrap();
+
+        Fleet::build(|kind| match kind {
+            ShipKind::AircraftCarrier => aircraft_carrier.clone(),
+            ShipKind::Battleship => battleship.clone(),
+            ShipKind::Cruiser => cruiser.clone(),
+            ShipKind::Submarine => submarine.clone(),
+            ShipKind::Destroyer => destroyer.clone(),
+        })
+    }
 
     #[rstest]
     #[case(0, 0, ShipOrientation::Horizontal, true)]
@@ -700,36 +728,30 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_new_fleet() {
+    #[rstest]
+    fn test_new_fleet(fixed_fleet: Fleet) {
+        let col = 0;
         let aircraft_carrier = ShipKind::AircraftCarrier
-            .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+            .ship(Cell::bounded(col, 0), ShipOrientation::Horizontal)
             .unwrap();
         let battleship = ShipKind::Battleship
-            .ship(Cell::bounded(0, 2), ShipOrientation::Horizontal)
+            .ship(Cell::bounded(col, 2), ShipOrientation::Horizontal)
             .unwrap();
         let cruiser = ShipKind::Cruiser
-            .ship(Cell::bounded(0, 4), ShipOrientation::Horizontal)
+            .ship(Cell::bounded(col, 4), ShipOrientation::Horizontal)
             .unwrap();
         let submarine = ShipKind::Submarine
-            .ship(Cell::bounded(0, 6), ShipOrientation::Horizontal)
+            .ship(Cell::bounded(col, 6), ShipOrientation::Horizontal)
             .unwrap();
         let destroyer = ShipKind::Destroyer
-            .ship(Cell::bounded(0, 8), ShipOrientation::Horizontal)
+            .ship(Cell::bounded(col, 8), ShipOrientation::Horizontal)
             .unwrap();
-        let fleet = Fleet::build(|kind| match kind {
-            ShipKind::AircraftCarrier => aircraft_carrier.clone(),
-            ShipKind::Battleship => battleship.clone(),
-            ShipKind::Cruiser => cruiser.clone(),
-            ShipKind::Submarine => submarine.clone(),
-            ShipKind::Destroyer => destroyer.clone(),
-        });
 
-        assert_eq!(fleet.0[0], aircraft_carrier);
-        assert_eq!(fleet.0[1], battleship);
-        assert_eq!(fleet.0[2], cruiser);
-        assert_eq!(fleet.0[3], submarine);
-        assert_eq!(fleet.0[4], destroyer);
+        assert_eq!(fixed_fleet.0[0], aircraft_carrier);
+        assert_eq!(fixed_fleet.0[1], battleship);
+        assert_eq!(fixed_fleet.0[2], cruiser);
+        assert_eq!(fixed_fleet.0[3], submarine);
+        assert_eq!(fixed_fleet.0[4], destroyer);
     }
 
     #[rstest]

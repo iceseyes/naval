@@ -15,10 +15,8 @@
 //! has its own model. Application sends requests to the actual state object, and this one dispatches
 //! the requests to the real model.
 //!
-use crate::{
-    engine::player::Player,
-    tui::widgets::{battle::BattleStateModel, setup::SetupStateModel},
-};
+use crate::engine::game::Game;
+use crate::tui::widgets::{battle::BattleStateModel, setup::SetupStateModel};
 use crossterm::event::{Event, KeyEvent};
 use ratatui::prelude::{Buffer, Rect, Widget};
 use std::default::Default;
@@ -30,11 +28,8 @@ pub trait StateModel {
     /// Handles user input events according to the current state.
     fn handle_key_events(&mut self, key_event: KeyEvent);
 
-    /// Updates player data according to the current state.
-    ///
-    /// It consumes the current players and returns the updated players.
-    /// First it updates the computer player, then the human player.
-    fn update(&mut self, computer: Player, human: Option<Player>) -> (Player, Option<Player>);
+    /// Updates the game state according to the current interface state.
+    fn update(&mut self, game: &mut Game);
 
     /// Builds the corresponding UI widget for the current state.
     fn widget(&self) -> impl Widget;
@@ -56,9 +51,9 @@ impl NavalBattleState {
     }
 
     /// Creates a new battle state ready to start the battle between the computer and the user.
-    pub fn battle(computer: &Player, human: &Player) -> Self {
+    pub fn battle(game: &Game) -> Self {
         let mut model = BattleStateModel::default();
-        model.update_grid(computer, human);
+        model.update_grid(game.computer().unwrap(), game.human().unwrap());
 
         Self::Battle(model)
     }
@@ -74,10 +69,10 @@ impl NavalBattleState {
     }
 
     /// Updates the player objects according to the current state.
-    pub fn update(&mut self, computer: Player, human: Option<Player>) -> (Player, Option<Player>) {
+    pub fn update(&mut self, game: &mut Game) {
         match self {
-            NavalBattleState::Setup(state) => state.update(computer, human),
-            NavalBattleState::Battle(state) => state.update(computer, human),
+            NavalBattleState::Setup(state) => state.update(game),
+            NavalBattleState::Battle(state) => state.update(game),
         }
     }
 

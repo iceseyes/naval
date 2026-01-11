@@ -1,3 +1,4 @@
+use crate::engine::game::Game;
 use crate::{
     engine::{
         fleet::{Fleet, Ship, ShipKind, ShipOrientation},
@@ -105,17 +106,10 @@ impl StateModel for SetupStateModel {
         self.update_grid();
     }
 
-    fn update(&mut self, computer: Player, human: Option<Player>) -> (Player, Option<Player>) {
+    fn update(&mut self, game: &mut Game) {
         if self.current_kind.is_none() {
-            (
-                computer,
-                Some(Player::new(
-                    "player 1",
-                    Fleet::new(self.ships.as_slice()).unwrap(),
-                )),
-            )
-        } else {
-            (computer, human)
+            let human = Player::new("player 1", Fleet::new(self.ships.as_slice()).unwrap());
+            game.set_human_player(human);
         }
     }
 

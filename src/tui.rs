@@ -5,10 +5,8 @@
 //! The game consists of two main phases: setup and battle. During the setup phase, the human player deploys their fleet on a grid.
 //! During the battle phase, the human player and the computer take turns attacking each other's fleets until one player wins.
 //!
-use crate::{
-    engine::{fleet::Fleet, player::Player},
-    tui::{state::NavalBattleState, widgets::workbench::Workbench},
-};
+use crate::engine::game::Game;
+use crate::tui::{state::NavalBattleState, widgets::workbench::Workbench};
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{DefaultTerminal, Frame};
 use std::io;
@@ -30,8 +28,7 @@ mod widgets;
 /// For each player, the application asks for a shot to the current player, it evaluates if the opponent fleet is sunk or not,
 /// and switch turns until one of the players has lost.
 pub struct NavalBattleTui {
-    computer: Player,
-    human: Option<Player>,
+    game: Game,
     state: NavalBattleState,
     exit: bool,
     enter_pressed: bool,
@@ -45,8 +42,7 @@ impl NavalBattleTui {
     /// The setup state is the default state when the application starts.
     pub fn new() -> Self {
         Self {
-            computer: Player::new("Computer", Fleet::build(|kind| kind.random())),
-            human: None,
+            game: Game::new(),
             state: NavalBattleState::default(),
             exit: false,
             enter_pressed: false,
@@ -61,8 +57,7 @@ impl NavalBattleTui {
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
-            (self.computer, self.human) =
-                self.state.update(self.computer.clone(), self.human.clone());
+            self.state.update(&mut self.game);
             self.check_for_state_change()?;
         }
         Ok(())
@@ -86,15 +81,14 @@ impl NavalBattleTui {
         // If the application is in setup mode but the human player has been created, switch to battle mode.
         // If the application is in battle mode, wait for user input.
         if let NavalBattleState::Setup { .. } = self.state
-            && self.human.is_some()
+            && self.game.is_ready()
         {
-            self.state = NavalBattleState::battle(&self.computer, self.human.as_ref().unwrap());
+            self.state = NavalBattleState::battle(&self.game);
         } else if let NavalBattleState::Battle { .. } = self.state
             && self.match_is_over()
             && self.enter_pressed
         {
-            self.computer = Player::new("Computer", Fleet::build(|kind| kind.random()));
-            self.human = None;
+            self.game = Game::new();
             self.state = NavalBattleState::setup();
             self.enter_pressed = false;
         }
@@ -104,7 +98,7 @@ impl NavalBattleTui {
 
     fn match_is_over(&self) -> bool {
         if let NavalBattleState::Battle { .. } = self.state {
-            self.computer.has_lost() || self.human.as_ref().map_or(false, |h| h.has_lost())
+            self.game.is_over()
         } else {
             false
         }
