@@ -6,7 +6,7 @@
 use crate::engine::fleet::Fleet;
 use crate::engine::grid::Cell;
 use crate::engine::player::Player;
-use crate::engine::strategy::RandomStrategy;
+use crate::engine::strategy::{RandomStrategy, SmartStrategy};
 use rand::random_bool;
 
 /// The Naval Battle game
@@ -38,7 +38,7 @@ impl Game {
     pub fn set_human_player(&mut self, player: Player) {
         let human_player_first = random_bool(Self::HUMAN_MOVE_FIRST_PROBABILITY);
         let mut computer = Player::new(Self::COMPUTER_NAME, Fleet::build(|k| k.random()));
-        computer.set_strategy(RandomStrategy);
+        computer.set_strategy(SmartStrategy::new());
 
         self.players.clear();
         if human_player_first {

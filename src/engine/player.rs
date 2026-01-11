@@ -62,6 +62,7 @@ impl Player {
         let ship_hit = opponent.fleet.hit_at(cell);
         if ship_hit.is_some() {
             self.grid.mark(cell, CellState::Hit);
+            self.strategy.notify_hit(ship_hit.clone().unwrap());
         } else {
             self.grid.mark(cell, CellState::Miss);
         }
