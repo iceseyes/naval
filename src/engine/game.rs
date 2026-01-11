@@ -15,6 +15,9 @@ pub struct Game {
 }
 
 impl Game {
+    const HUMAN_MOVE_FIRST_PROBABILITY: f64 = 0.5;
+    const COMPUTER_NAME: &'static str = "Computer";
+
     /// Creates a new game, not ready to play.
     ///
     /// This new game must have been set upped with 2 players
@@ -32,8 +35,8 @@ impl Game {
     ///
     /// The game object takes the ownership of the given player.
     pub fn set_human_player(&mut self, player: Player) {
-        let human_player_first = random_bool(0.5);
-        let computer = Player::new("Computer", Fleet::build(|k| k.random()));
+        let human_player_first = random_bool(Self::HUMAN_MOVE_FIRST_PROBABILITY);
+        let computer = Player::new(Self::COMPUTER_NAME, Fleet::build(|k| k.random()));
 
         self.players.clear();
         if human_player_first {
@@ -60,7 +63,7 @@ impl Game {
     /// Return the human player.
     pub fn human(&self) -> Option<&Player> {
         if self.players.len() == 2 {
-            if self.players[0].name() == "Computer" {
+            if self.players[0].name() == Self::COMPUTER_NAME {
                 Some(&self.players[1])
             } else {
                 Some(&self.players[0])
@@ -73,7 +76,7 @@ impl Game {
     /// Return the computer player.
     pub fn computer(&self) -> Option<&Player> {
         if self.players.len() == 2 {
-            if self.players[0].name() == "Computer" {
+            if self.players[0].name() == Self::COMPUTER_NAME {
                 Some(&self.players[0])
             } else {
                 Some(&self.players[1])
@@ -131,7 +134,7 @@ fn do_move(
     human_move: &Cell,
 ) -> Result<(Option<String>, Option<Cell>), String> {
     let mut last_computer_move = None;
-    if player.name() == "Computer" {
+    if player.name() == Game::COMPUTER_NAME {
         let computer_move = Cell::random();
         last_computer_move = Some(computer_move);
         player.attack(opposite, &computer_move);
@@ -159,7 +162,7 @@ mod tests {
 
     #[fixture]
     fn computer_player(fixed_fleet: Fleet) -> Player {
-        Player::new("Computer", fixed_fleet)
+        Player::new(Game::COMPUTER_NAME, fixed_fleet)
     }
 
     #[rstest]
@@ -235,7 +238,7 @@ mod tests {
 
     #[rstest]
     fn test_get_player(human_player: Player, computer_player: Player) {
-        let mut game = Game {
+        let game = Game {
             players: vec![human_player.clone(), computer_player.clone()],
             last_computer_move: None,
         };
