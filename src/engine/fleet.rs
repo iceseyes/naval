@@ -159,6 +159,18 @@ impl Ship {
     /// The space a ship occupies includes all the cells that define it, plus a one-cell border around them.
     /// If the second ship is on one or more of those cells, the ships are considered to be overlapping.
     pub fn is_overlapping(&self, other: &Ship) -> bool {
+        for cell in self.area() {
+            if other.contains(&cell).is_some() {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Returns the cells that the ship occupies, including the surrounding border.
+    pub fn area(&self) -> Vec<Cell> {
+        let mut cells = Vec::new();
         let (x_start, x_end, y_start, y_end) = match self.orientation {
             ShipOrientation::Horizontal => {
                 let x_start = self.first_cell.x().saturating_sub(1);
@@ -178,13 +190,11 @@ impl Ship {
 
         for x in x_start..=x_end {
             for y in y_start..=y_end {
-                if other.contains(&Cell::bounded(x, y)).is_some() {
-                    return true;
-                }
+                cells.push(Cell::bounded(x, y));
             }
         }
 
-        false
+        cells
     }
 
     /// Checks if the cell belongs to the ship and returns its relative index.
