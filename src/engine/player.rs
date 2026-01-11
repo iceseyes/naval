@@ -14,13 +14,16 @@
 
 use crate::engine::fleet::{Fleet, ShipKind};
 use crate::engine::grid::{Cell, CellState, Grid};
+use crate::engine::strategy::Strategy;
 
 /// Defines the Player struct and associated methods for managing player-related functionalities.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Player {
     name: String,
     fleet: Fleet,
     grid: Grid,
+    strategy: Box<dyn Strategy>,
+    human: bool,
 }
 
 impl Player {
@@ -32,6 +35,8 @@ impl Player {
             name: name.to_string(),
             fleet,
             grid: Grid::default(),
+            strategy: Box::new(NoStrategy),
+            human: true,
         }
     }
 
@@ -67,6 +72,34 @@ impl Player {
     /// Checks whether this player has lost the battle
     pub fn has_lost(&self) -> bool {
         self.fleet.is_sunk()
+    }
+
+    /// return the next move to play, or None if no strategy is supported (human player)
+    pub fn next_move(&mut self) -> Option<Cell> {
+        self.strategy.next_move()
+    }
+
+    /// Set the strategy to use for this player.
+    pub fn set_strategy<ConcreteStrategy: Strategy + 'static>(
+        &mut self,
+        strategy: ConcreteStrategy,
+    ) {
+        self.strategy = Box::new(strategy);
+        self.human = false;
+    }
+
+    /// A player is a human player if it has a strategy that is not NoStrategy.
+    pub fn is_human(&self) -> bool {
+        self.human
+    }
+}
+
+#[derive(Debug)]
+struct NoStrategy;
+
+impl Strategy for NoStrategy {
+    fn next_move(&mut self) -> Option<Cell> {
+        None
     }
 }
 

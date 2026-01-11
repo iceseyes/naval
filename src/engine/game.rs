@@ -6,6 +6,7 @@
 use crate::engine::fleet::Fleet;
 use crate::engine::grid::Cell;
 use crate::engine::player::Player;
+use crate::engine::strategy::RandomStrategy;
 use rand::random_bool;
 
 /// The Naval Battle game
@@ -36,7 +37,8 @@ impl Game {
     /// The game object takes the ownership of the given player.
     pub fn set_human_player(&mut self, player: Player) {
         let human_player_first = random_bool(Self::HUMAN_MOVE_FIRST_PROBABILITY);
-        let computer = Player::new(Self::COMPUTER_NAME, Fleet::build(|k| k.random()));
+        let mut computer = Player::new(Self::COMPUTER_NAME, Fleet::build(|k| k.random()));
+        computer.set_strategy(RandomStrategy);
 
         self.players.clear();
         if human_player_first {
@@ -62,28 +64,12 @@ impl Game {
 
     /// Return the human player.
     pub fn human(&self) -> Option<&Player> {
-        if self.players.len() == 2 {
-            if self.players[0].name() == Self::COMPUTER_NAME {
-                Some(&self.players[1])
-            } else {
-                Some(&self.players[0])
-            }
-        } else {
-            None
-        }
+        self.players.iter().find(|p| p.is_human())
     }
 
     /// Return the computer player.
     pub fn computer(&self) -> Option<&Player> {
-        if self.players.len() == 2 {
-            if self.players[0].name() == Self::COMPUTER_NAME {
-                Some(&self.players[0])
-            } else {
-                Some(&self.players[1])
-            }
-        } else {
-            None
-        }
+        self.players.iter().find(|p| !p.is_human())
     }
 
     /// return the last computer move made by the computer player.
@@ -110,7 +96,7 @@ impl Game {
 
         let (winner, computer_move) = do_move(first, second, human_move)?;
         if let Some(winner) = winner {
-            return Ok(Some(winner != Self::COMPUTER_NAME));
+            return Ok(Some(winner.is_human()));
         }
 
         if let Some(computer_move) = computer_move {
@@ -119,7 +105,7 @@ impl Game {
 
         let (winner, computer_move) = do_move(second, first, human_move)?;
         if let Some(winner) = winner {
-            return Ok(Some(winner != Self::COMPUTER_NAME));
+            return Ok(Some(winner.is_human()));
         }
 
         if let Some(computer_move) = computer_move {
@@ -130,22 +116,23 @@ impl Game {
     }
 }
 
-fn do_move(
-    player: &mut Player,
-    opposite: &mut Player,
+fn do_move<'player>(
+    player: &'player mut Player,
+    opposite: &'player mut Player,
     human_move: &Cell,
-) -> Result<(Option<String>, Option<Cell>), String> {
+) -> Result<(Option<&'player Player>, Option<Cell>), String> {
     let mut last_computer_move = None;
-    if player.name() == Game::COMPUTER_NAME {
-        let computer_move = Cell::random();
-        last_computer_move = Some(computer_move);
-        player.attack(opposite, &computer_move);
+    let player_move = if let Some(move_) = player.next_move() {
+        last_computer_move = Some(move_);
+        move_
     } else {
-        player.attack(opposite, human_move);
-    }
+        *human_move
+    };
+
+    player.attack(opposite, &player_move);
 
     if opposite.has_lost() {
-        Ok((Some(player.name().to_string()), last_computer_move))
+        Ok((Some(player), last_computer_move))
     } else {
         Ok((None, last_computer_move))
     }
@@ -164,7 +151,10 @@ mod tests {
 
     #[fixture]
     fn computer_player(fixed_fleet: Fleet) -> Player {
-        Player::new(Game::COMPUTER_NAME, fixed_fleet)
+        let mut player = Player::new(Game::COMPUTER_NAME, fixed_fleet);
+        player.set_strategy(RandomStrategy);
+
+        player
     }
 
     #[rstest]
@@ -240,11 +230,13 @@ mod tests {
 
     #[rstest]
     fn test_get_player(human_player: Player, computer_player: Player) {
+        let human_name = human_player.name().to_string();
+        let computer_name = computer_player.name().to_string();
         let game = Game {
-            players: vec![human_player.clone(), computer_player.clone()],
+            players: vec![human_player, computer_player],
             last_computer_move: None,
         };
-        assert_eq!(game.human().unwrap().name(), human_player.name());
-        assert_eq!(game.computer().unwrap().name(), computer_player.name());
+        assert_eq!(game.human().unwrap().name(), human_name);
+        assert_eq!(game.computer().unwrap().name(), computer_name);
     }
 }
