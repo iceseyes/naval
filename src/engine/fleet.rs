@@ -289,6 +289,7 @@ impl Fleet {
     ///
     /// The ships in the slice must match the composition of the fleet in the same order.
     /// An error is returned if the slice does not contain exactly 5 ships or if any ship does not match the expected size.
+    /// An error is also returned if any of the ships overlap with each other.
     pub fn new(ships: &[Ship]) -> Result<Self, String> {
         if ships.len() != Self::COMPOSITION.len() {
             return Err(format!(
@@ -310,6 +311,19 @@ impl Fleet {
         }
 
         let ships_array: [Ship; 5] = Vec::from(ships).try_into().unwrap();
+
+        for ship in ships_array.iter() {
+            if ships_array
+                .iter()
+                .any(|s| s != ship && s.is_overlapping(ship))
+            {
+                return Err(format!(
+                    "The provided ships overlap with each other: {:?}",
+                    ships_array
+                ));
+            }
+        }
+
         Ok(Self(ships_array))
     }
 
@@ -800,5 +814,71 @@ pub(crate) mod tests {
         }
 
         assert!(fleet.is_sunk());
+    }
+
+    #[rstest]
+    fn test_new_fleet_from_array() {
+        let fleet = Fleet::new(&[
+            ShipKind::AircraftCarrier
+                .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Battleship
+                .ship(Cell::bounded(0, 2), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Cruiser
+                .ship(Cell::bounded(0, 4), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Submarine
+                .ship(Cell::bounded(0, 6), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Destroyer
+                .ship(Cell::bounded(0, 8), ShipOrientation::Horizontal)
+                .unwrap(),
+        ])
+        .unwrap();
+        assert_eq!(fleet.0.len(), 5);
+
+        let fleet = Fleet::new(&[ShipKind::AircraftCarrier
+            .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+            .unwrap()]);
+        assert!(fleet.is_err());
+
+        let fleet = Fleet::new(&[
+            ShipKind::AircraftCarrier
+                .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::AircraftCarrier
+                .ship(Cell::bounded(0, 2), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Cruiser
+                .ship(Cell::bounded(0, 4), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Submarine
+                .ship(Cell::bounded(0, 6), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Destroyer
+                .ship(Cell::bounded(0, 8), ShipOrientation::Horizontal)
+                .unwrap(),
+        ]);
+        assert!(fleet.is_err());
+
+        let fleet = Fleet::new(&[
+            ShipKind::AircraftCarrier
+                .ship(Cell::bounded(0, 0), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Battleship
+                .ship(Cell::bounded(0, 2), ShipOrientation::Vertical)
+                .unwrap(),
+            ShipKind::Cruiser
+                .ship(Cell::bounded(0, 4), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Submarine
+                .ship(Cell::bounded(0, 6), ShipOrientation::Horizontal)
+                .unwrap(),
+            ShipKind::Destroyer
+                .ship(Cell::bounded(0, 8), ShipOrientation::Horizontal)
+                .unwrap(),
+        ]);
+        assert!(fleet.is_err());
     }
 }

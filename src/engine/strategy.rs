@@ -72,8 +72,23 @@ impl Strategy for SmartStrategy {
 
     fn notify_hit(&mut self, _kind: ShipKind) {
         let last_move = *self.moves.last().unwrap();
-
         let mut new_candidates = Vec::new();
+
+        match self.candidate_moves.len() {
+            3 => {
+                // the first strike has hit a ship, so only the cell on the same
+                // axis may be a ship-cell. I can remove the perpendicular cells
+                // and mark them as moved
+                self.moves.push(self.candidate_moves.remove(0));
+                // after that, candidates_move is reduced to two cells, one for each axis
+                self.moves.push(self.candidate_moves.remove(1));
+            }
+            2 => {
+                // the second strike has hit a ship, so I can remove the perpendicular cells
+                self.moves.push(self.candidate_moves.remove(1));
+            }
+            _ => {}
+        }
 
         if last_move.x() > 0
             && let Ok(cell) = Cell::new(last_move.x() - 1, last_move.y())
@@ -83,16 +98,16 @@ impl Strategy for SmartStrategy {
             new_candidates.push(cell);
         }
 
-        if last_move.x() < 10
-            && let Ok(cell) = Cell::new(last_move.x() + 1, last_move.y())
+        if last_move.y() > 0
+            && let Ok(cell) = Cell::new(last_move.x(), last_move.y() - 1)
             && !self.moves.contains(&cell)
             && !self.candidate_cells.iter().flatten().any(|c| *c == cell)
         {
             new_candidates.push(cell);
         }
 
-        if last_move.y() > 0
-            && let Ok(cell) = Cell::new(last_move.x(), last_move.y() - 1)
+        if last_move.x() < 10
+            && let Ok(cell) = Cell::new(last_move.x() + 1, last_move.y())
             && !self.moves.contains(&cell)
             && !self.candidate_cells.iter().flatten().any(|c| *c == cell)
         {
@@ -117,22 +132,54 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
+    fn test_smart_strategy_shortcut() {
+        let mut strategy = SmartStrategy {
+            moves: vec![Cell::bounded(5, 5)],
+            candidate_cells: Vec::new(),
+            candidate_moves: vec![
+                Cell::bounded(4, 5),
+                Cell::bounded(5, 4),
+                Cell::bounded(6, 5),
+                Cell::bounded(5, 6),
+            ],
+        };
+
+        // we should get (5, 6) first because it's the first element of the first group in candidate cells
+        let cell = strategy.next_move();
+        assert_eq!(cell, Some(Cell::bounded(5, 6)));
+        assert_eq!(
+            strategy.moves,
+            vec![Cell::bounded(5, 5), Cell::bounded(5, 6),]
+        );
+        strategy.notify_hit(ShipKind::AircraftCarrier);
+        assert_eq!(strategy.candidate_moves, vec![Cell::bounded(5, 4)]);
+        assert_eq!(
+            strategy.moves,
+            vec![
+                Cell::bounded(5, 5),
+                Cell::bounded(5, 6),
+                Cell::bounded(4, 5),
+                Cell::bounded(6, 5),
+            ]
+        );
+    }
+    #[rstest]
     fn test_smart_strategy_in_a_row() {
         let mut strategy = SmartStrategy {
             moves: vec![Cell::bounded(5, 5)],
             candidate_cells: Vec::new(),
             candidate_moves: vec![
                 Cell::bounded(4, 5),
-                Cell::bounded(6, 5),
                 Cell::bounded(5, 4),
+                Cell::bounded(6, 5),
                 Cell::bounded(5, 6),
             ],
         };
 
-        strategy.next_move();
+        // this move doesn't hit anything
         strategy.next_move();
 
-        // we should get (4,5) first because it's the first element of the first group in candidate cells
+        // we should get (6, 5) first because it's the first element of the first group in candidate cells
         let cell = strategy.next_move();
         assert_eq!(cell, Some(Cell::bounded(6, 5)));
         assert_eq!(
@@ -140,11 +187,13 @@ mod tests {
             vec![
                 Cell::bounded(5, 5),
                 Cell::bounded(5, 6),
-                Cell::bounded(5, 4),
                 Cell::bounded(6, 5)
             ]
         );
-        assert_eq!(strategy.candidate_moves, vec![Cell::bounded(4, 5),]);
+        assert_eq!(
+            strategy.candidate_moves,
+            vec![Cell::bounded(4, 5), Cell::bounded(5, 4)]
+        );
         assert!(strategy.candidate_cells.is_empty());
 
         // notify hit to add new candidates around (4,5)
@@ -153,8 +202,8 @@ mod tests {
         assert_eq!(
             strategy.candidate_cells,
             vec![vec![
-                Cell::bounded(7, 5),
                 Cell::bounded(6, 4),
+                Cell::bounded(7, 5),
                 Cell::bounded(6, 6)
             ]]
         );
@@ -167,8 +216,8 @@ mod tests {
             vec![
                 Cell::bounded(5, 5),
                 Cell::bounded(5, 6),
-                Cell::bounded(5, 4),
                 Cell::bounded(6, 5),
+                Cell::bounded(5, 4),
                 Cell::bounded(4, 5)
             ]
         );
@@ -179,8 +228,8 @@ mod tests {
             strategy.candidate_cells,
             vec![
                 vec![
-                    Cell::bounded(7, 5),
                     Cell::bounded(6, 4),
+                    Cell::bounded(7, 5),
                     Cell::bounded(6, 6)
                 ],
                 vec![
@@ -196,5 +245,30 @@ mod tests {
 
         let cell = strategy.next_move();
         assert_eq!(cell, Some(Cell::bounded(3, 5)));
+    }
+
+    #[rstest]
+    fn test_smart_strategy_first_move_is_random() {
+        let mut strategy = SmartStrategy::new();
+        let cell = strategy.next_move();
+        assert!(cell.is_some());
+    }
+
+    #[rstest]
+    fn test_smart_do_not_repeat_your_self() {
+        let mut strategy = SmartStrategy::new();
+        let first_move = strategy.next_move().unwrap();
+        strategy.moves.push(first_move);
+        strategy.candidate_moves.push(first_move);
+        let next_move = strategy.next_move().unwrap();
+        assert!(strategy.candidate_moves.is_empty());
+        assert_ne!(first_move, next_move);
+    }
+
+    #[rstest]
+    fn test_random_strategy_next_move() {
+        let mut strategy = RandomStrategy;
+        let cell = strategy.next_move();
+        assert!(cell.is_some());
     }
 }

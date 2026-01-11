@@ -3,10 +3,7 @@
 //! The game proceeds in turns, where each player attacks the other until one of them loses all
 //! their ships.
 
-use crate::engine::fleet::Fleet;
-use crate::engine::grid::Cell;
-use crate::engine::player::Player;
-use crate::engine::strategy::SmartStrategy;
+use crate::engine::{fleet::Fleet, grid::Cell, player::Player, strategy::SmartStrategy};
 use rand::random_bool;
 
 /// The Naval Battle game
