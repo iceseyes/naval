@@ -6,7 +6,7 @@
 use crate::engine::fleet::Fleet;
 use crate::engine::grid::Cell;
 use crate::engine::player::Player;
-use crate::engine::strategy::{RandomStrategy, SmartStrategy};
+use crate::engine::strategy::SmartStrategy;
 use rand::random_bool;
 
 /// The Naval Battle game
@@ -141,7 +141,10 @@ fn do_move<'player>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::fleet::{tests::fixed_fleet, Fleet};
+    use crate::{
+        engine::fleet::{tests::fixed_fleet, Fleet},
+        engine::strategy::RandomStrategy,
+    };
     use rstest::{fixture, rstest};
 
     #[fixture]
